@@ -505,38 +505,69 @@ function drawChart(canvasId,pts,st,opts){
   const now=new Date();
   if(now.getTime()>=tMin&&now.getTime()<=tMax){
     const nx=tx(now.getTime());
-    // Dashed vertical
-    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1*s;ctx.setLineDash([3*s,3*s]);
+
+    // Bold vertical NOW line — always visible
+    ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=2*s;ctx.setLineDash([4*s,3*s]);
     ctx.beginPath();ctx.moveTo(nx,pT);ctx.lineTo(nx,pT+cH);ctx.stroke();ctx.setLineDash([]);
-    // NOW label
-    ctx.fillStyle='rgba(200,232,255,0.7)';ctx.font=`bold ${8*s}px Share Tech Mono`;ctx.textAlign='center';
-    ctx.fillText('NOW',nx,pT-5*s);
+
+    // NOW pill label at top of line
+    const nowLbl='▼ NOW';
+    ctx.font=`bold ${8*s}px Share Tech Mono`;
+    const nlw=ctx.measureText(nowLbl).width+8*s;
+    const nlh=12*s;
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.beginPath();ctx.roundRect(nx-nlw/2,pT,nlw,nlh,3*s);ctx.fill();
+    ctx.fillStyle='#000';ctx.textAlign='center';ctx.fillText(nowLbl,nx,pT+nlh-3*s);
 
     if(opts.nowVal!=null){
-      const ny=ty(opts.nowVal);
-      // Outer pulse ring (animated)
+      // Clamp the Y so dot never goes outside chart area
+      const rawNy=ty(opts.nowVal);
+      const ny=Math.max(pT+6*s, Math.min(pT+cH-6*s, rawNy));
+
       const pulse=(Math.sin(nowPulsePhase*0.003)+1)/2; // 0..1
-      const outerR=(8+pulse*8)*s;
+
+      // Largest outer glow ring
+      const r3=(14+pulse*10)*s;
+      ctx.beginPath();ctx.arc(nx,ny,r3,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(255,255,255,${0.08+pulse*0.12})`;ctx.lineWidth=3*s;ctx.stroke();
+
+      // Outer pulse ring
+      const outerR=(9+pulse*7)*s;
       ctx.beginPath();ctx.arc(nx,ny,outerR,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(255,255,255,${0.15+pulse*0.25})`;ctx.lineWidth=2*s;ctx.stroke();
+      ctx.strokeStyle=`rgba(255,255,255,${0.2+pulse*0.3})`;ctx.lineWidth=2*s;ctx.stroke();
+
       // Mid ring
-      const midR=(5+pulse*4)*s;
+      const midR=(5+pulse*3)*s;
       ctx.beginPath();ctx.arc(nx,ny,midR,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(255,255,255,${0.25+pulse*0.3})`;ctx.lineWidth=1.5*s;ctx.stroke();
-      // Solid center
-      ctx.beginPath();ctx.arc(nx,ny,4*s,0,Math.PI*2);
-      ctx.fillStyle='#ffffff';ctx.shadowColor='#ffffff';ctx.shadowBlur=12*s;ctx.fill();ctx.shadowBlur=0;
-      // Value label bubble
+      ctx.strokeStyle=`rgba(255,255,255,${0.4+pulse*0.3})`;ctx.lineWidth=1.5*s;ctx.stroke();
+
+      // Bright solid core — always 5px radius minimum so it's never tiny
+      const coreR=Math.max(5,4)*s;
+      ctx.beginPath();ctx.arc(nx,ny,coreR,0,Math.PI*2);
+      ctx.fillStyle='#ffffff';
+      ctx.shadowColor='#ffffff';ctx.shadowBlur=16*s;ctx.fill();
+      ctx.shadowColor='#00b4ff';ctx.shadowBlur=24*s;ctx.fill();
+      ctx.shadowBlur=0;
+
+      // Value label bubble — always shown, clamped to chart bounds
       const valStr=opts.valLabel?opts.valLabel(opts.nowVal):opts.nowVal.toFixed(2);
-      ctx.font=`bold ${9*s}px Share Tech Mono`;
+      ctx.font=`bold ${10*s}px Share Tech Mono`;
       const tw=ctx.measureText(valStr).width;
-      const bx=nx+8*s,by=ny-18*s,bw=tw+10*s,bh=14*s,br=4*s;
-      // Clamp bubble horizontally
-      const bxC=Math.min(bx,W-pR-bw-4*s);
-      ctx.fillStyle='rgba(0,0,0,0.75)';
-      ctx.beginPath();ctx.roundRect(bxC,by-bh/2,bw,bh,br);ctx.fill();
-      ctx.fillStyle='#ffffff';ctx.textAlign='left';
-      ctx.fillText(valStr,bxC+5*s,by+4*s);
+      const bw=tw+14*s,bh=16*s,br=5*s;
+      // Prefer right of dot, fall back to left if too close to edge
+      let bx=nx+10*s;
+      if(bx+bw>W-pR-4*s)bx=nx-bw-10*s;
+      const by=ny-bh/2;
+      // Clamp vertically
+      const byC=Math.max(pT+2*s, Math.min(pT+cH-bh-2*s, by));
+      // Background
+      ctx.fillStyle='rgba(0,0,0,0.88)';
+      ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5*s;
+      ctx.beginPath();ctx.roundRect(bx,byC,bw,bh,br);ctx.fill();ctx.stroke();
+      // Text
+      ctx.fillStyle='#ffffff';ctx.textAlign='left';ctx.shadowColor='rgba(0,180,255,0.5)';ctx.shadowBlur=4*s;
+      ctx.fillText(valStr,bx+7*s,byC+bh-4*s);
+      ctx.shadowBlur=0;
     }
   }
 
