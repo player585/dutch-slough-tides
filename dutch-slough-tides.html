@@ -183,18 +183,20 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="chart-title">Gage Height</div>
       <div class="toggle-group">
         <button class="tbtn" id="gage-1d" onclick="setGagePeriod('1d')">1D</button>
-        <button class="tbtn active" id="gage-7d" onclick="setGagePeriod('7d')">7D</button>
+        <button class="tbtn active" id="gage-7d" onclick="setGagePeriod('7d')">7D↩</button>
+        <button class="tbtn" id="gage-14d" onclick="setGagePeriod('14d')">±7D</button>
       </div>
     </div>
     <div class="chart-wrap" id="gage-wrap">
       <canvas id="gage-canvas" height="160" aria-label="Gage height chart"></canvas>
     </div>
-    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · r1 scroll wheel works</div>
+    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · ±7D = 7 days past + forecast</div>
     <div class="chart-legend">
-      <div class="leg-item"><div class="leg-dot" style="background:#00b4ff"></div><span>Gage Ht (ft)</span></div>
-      <div class="leg-item"><div class="leg-dot" style="background:#fff;box-shadow:0 0 4px #fff"></div><span>NOW (live)</span></div>
-      <div class="leg-item"><div class="leg-dot" style="background:#ffc843"></div><span>Pred. High</span></div>
-      <div class="leg-item"><div class="leg-dot" style="background:#64b5f6"></div><span>Pred. Low</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#00b4ff"></div><span>USGS Live</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(0,180,255,0.4);border:1px dashed #00b4ff"></div><span>NOAA Forecast</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#fff;box-shadow:0 0 4px #fff"></div><span>NOW</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#ffc843"></div><span>High</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#64b5f6"></div><span>Low</span></div>
     </div>
   </div>
 
@@ -204,7 +206,8 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="chart-title">Inflow / Outflow</div>
       <div class="toggle-group">
         <button class="tbtn" id="flow-1d" onclick="setFlowPeriod('1d')">1D</button>
-        <button class="tbtn active" id="flow-7d" onclick="setFlowPeriod('7d')">7D</button>
+        <button class="tbtn active" id="flow-7d" onclick="setFlowPeriod('7d')">7D↩</button>
+        <button class="tbtn" id="flow-14d" onclick="setFlowPeriod('14d')">±7D</button>
       </div>
     </div>
     <div class="chart-wrap" id="flow-wrap">
@@ -277,6 +280,7 @@ const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
 
 // ── STATE ──────────────────────────────────────────────────────────
 let hist1d={},hist7d={},hiloWeek=[],hiloToday=[];
+let noaaPred6min=[],noaaPredFuture=[];  // NOAA 6-min predictions past+future
 let gagePeriod='7d',flowPeriod='7d';
 let prevGage=null,latestFlowVal=null,latestGageVal=null;
 let upcoming=[],weatherData={};
@@ -333,6 +337,14 @@ async function fetchNoaaHiLo(begin,end){
   const r=await fetch(u.toString());if(!r.ok)throw new Error('NOAA '+r.status);
   const d=await r.json();if(d.error)throw new Error(d.error.message);
   return(d.predictions||[]).map(p=>({...p,date:parseNoaaT(p.t),h:parseFloat(p.v)}));
+}
+
+async function fetchNoaa6min(begin,end){
+  const u=new URL(NOAA_API);
+  Object.entries({station:NOAA_STATION,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'6',application:'dutch_slough',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u.toString());if(!r.ok)throw new Error('NOAA6 '+r.status);
+  const d=await r.json();if(d.error)throw new Error(d.error.message);
+  return(d.predictions||[]).map(p=>({t:parseNoaaT(p.t),v:parseFloat(p.v)}));
 }
 
 async function fetchWeather(){
@@ -580,49 +592,135 @@ function drawChart(canvasId,pts,st,opts){
 
 // ── DRAW GAGE ──────────────────────────────────────────────────────
 function drawGageChart(period){
-  const pts=(period==='1d'?hist1d:hist7d)['00065']||[];
-  drawChart('gage-canvas',pts,CS.gage,{
+  const livePts=(period==='1d'?hist1d:hist7d)['00065']||[];
+  // For 14d mode: stitch live data + NOAA forecast
+  let allPts=livePts, forecastPts=[];
+  if(period==='14d'&&noaaPredFuture.length){
+    // Convert NOAA predicted to same format as live (they share same station datum)
+    forecastPts=noaaPredFuture;
+    allPts=livePts; // drawn separately
+  }
+  const combinedForRange=period==='14d'?[...livePts,...forecastPts]:livePts;
+  if(!combinedForRange.length)return;
+
+  drawChart('gage-canvas',combinedForRange,CS.gage,{
     pL:42,yStep:0.5,
     hiloPoints:hiloWeek,
     nowVal:latestGageVal,
     valLabel:v=>`${v.toFixed(2)} ft`,
-    drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s)=>{
-      const vals=vis.map(p=>p.v);const vn=Math.min(...vals)-0.2,vx=Math.max(...vals)+0.3,vr=vx-vn||1;
+    drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s,vMin,vMax,vRange)=>{
+      // Determine y range from ALL combined points
+      const allV=combinedForRange.map(p=>p.v);
+      const vn=Math.min(...allV)-0.2,vx=Math.max(...allV)+0.3,vr=vx-vn||1;
       const ty2=v=>pT+(1-(v-vn)/vr)*cH;
-      const grad=ctx.createLinearGradient(0,pT,0,pT+cH);grad.addColorStop(0,'rgba(0,180,255,0.22)');grad.addColorStop(1,'rgba(0,180,255,0)');
-      ctx.beginPath();ctx.moveTo(tx(vis[0].t.getTime()),ty2(vis[0].v));
-      for(let i=1;i<vis.length;i++){const cpx=(tx(vis[i-1].t.getTime())+tx(vis[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty2(vis[i-1].v),cpx,ty2(vis[i].v),tx(vis[i].t.getTime()),ty2(vis[i].v));}
-      ctx.lineTo(tx(vis[vis.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(vis[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-      ctx.beginPath();ctx.moveTo(tx(vis[0].t.getTime()),ty2(vis[0].v));
-      for(let i=1;i<vis.length;i++){const cpx=(tx(vis[i-1].t.getTime())+tx(vis[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty2(vis[i-1].v),cpx,ty2(vis[i].v),tx(vis[i].t.getTime()),ty2(vis[i].v));}
-      ctx.strokeStyle='#00b4ff';ctx.lineWidth=2*s;ctx.shadowColor='#00b4ff';ctx.shadowBlur=5*s;ctx.stroke();ctx.shadowBlur=0;
+      const nowMs=Date.now();
+
+      // Draw forecast NOAA predicted curve first (behind live)
+      if(period==='14d'&&forecastPts.length){
+        const fp=forecastPts.filter(p=>p.t.getTime()>=combinedForRange[0].t.getTime()-300000);
+        if(fp.length>1){
+          // Dashed forecast fill
+          const fg=ctx.createLinearGradient(0,pT,0,pT+cH);fg.addColorStop(0,'rgba(0,180,255,0.10)');fg.addColorStop(1,'rgba(0,180,255,0)');
+          ctx.beginPath();ctx.moveTo(tx(fp[0].t.getTime()),ty2(fp[0].v));
+          for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty2(fp[i-1].v),cpx,ty2(fp[i].v),tx(fp[i].t.getTime()),ty2(fp[i].v));}
+          ctx.lineTo(tx(fp[fp.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(fp[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=fg;ctx.fill();
+          // Dashed forecast line
+          ctx.beginPath();ctx.setLineDash([5*s,4*s]);
+          ctx.moveTo(tx(fp[0].t.getTime()),ty2(fp[0].v));
+          for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty2(fp[i-1].v),cpx,ty2(fp[i].v),tx(fp[i].t.getTime()),ty2(fp[i].v));}
+          ctx.strokeStyle='rgba(0,180,255,0.5)';ctx.lineWidth=1.5*s;ctx.stroke();ctx.setLineDash([]);
+          // "FORECAST" label
+          const fx=tx(fp[Math.floor(fp.length*0.6)].t.getTime());
+          ctx.fillStyle='rgba(0,180,255,0.4)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';
+          ctx.fillText('▶ NOAA FORECAST',fx,pT+10*s);
+        }
+      }
+
+      // Live USGS data
+      const lp=livePts.filter(p=>p.t.getTime()>=combinedForRange[0].t.getTime()-300000&&p.t.getTime()<=combinedForRange[combinedForRange.length-1].t.getTime()+300000);
+      if(lp.length>1){
+        const grad=ctx.createLinearGradient(0,pT,0,pT+cH);grad.addColorStop(0,'rgba(0,180,255,0.22)');grad.addColorStop(1,'rgba(0,180,255,0)');
+        ctx.beginPath();ctx.moveTo(tx(lp[0].t.getTime()),ty2(lp[0].v));
+        for(let i=1;i<lp.length;i++){const cpx=(tx(lp[i-1].t.getTime())+tx(lp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty2(lp[i-1].v),cpx,ty2(lp[i].v),tx(lp[i].t.getTime()),ty2(lp[i].v));}
+        ctx.lineTo(tx(lp[lp.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(lp[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+        ctx.beginPath();ctx.moveTo(tx(lp[0].t.getTime()),ty2(lp[0].v));
+        for(let i=1;i<lp.length;i++){const cpx=(tx(lp[i-1].t.getTime())+tx(lp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty2(lp[i-1].v),cpx,ty2(lp[i].v),tx(lp[i].t.getTime()),ty2(lp[i].v));}
+        ctx.strokeStyle='#00b4ff';ctx.lineWidth=2*s;ctx.shadowColor='#00b4ff';ctx.shadowBlur=5*s;ctx.stroke();ctx.shadowBlur=0;
+      }
     }
   });
 }
 
 // ── DRAW FLOW ──────────────────────────────────────────────────────
+// Convert NOAA 6-min predicted tide height into relative flow direction
+// by computing rate of change (slope) — rising = flood, falling = ebb
+function noaaToFlow(pred){
+  if(pred.length<2)return[];
+  const SCALE=3000; // scale factor to match USGS ft³/s ballpark
+  return pred.map((p,i)=>{
+    if(i===0)return{t:p.t,v:0};
+    const dt=(p.t-pred[i-1].t)/60000; // minutes
+    const dv=(p.v-pred[i-1].v)/dt;    // ft/min
+    return{t:p.t,v:dv*SCALE};
+  });
+}
+
 function drawFlowChart(period){
-  const pts=(period==='1d'?hist1d:hist7d)['00060']||[];
-  if(!pts.length)return;
-  const vals=pts.map(p=>p.v),rawMin=Math.min(...vals),rawMax=Math.max(...vals);
-  drawChart('flow-canvas',pts,CS.flow,{
-    pL:52,vMin:rawMin*1.08,vMax:rawMax*1.08,
-    yStep:rawMax>3000?1000:rawMax>1000?500:250,
+  const livePts=(period==='1d'?hist1d:hist7d)['00060']||[];
+  let forecastFlowPts=[];
+  if(period==='14d'&&noaaPredFuture.length){
+    forecastFlowPts=noaaToFlow(noaaPredFuture);
+  }
+  const combinedForRange=period==='14d'&&forecastFlowPts.length?[...livePts,...forecastFlowPts]:livePts;
+  if(!combinedForRange.length)return;
+
+  const vals=combinedForRange.map(p=>p.v);
+  const rawMin=Math.min(...vals),rawMax=Math.max(...vals);
+  const absMax=Math.max(Math.abs(rawMin),Math.abs(rawMax));
+
+  drawChart('flow-canvas',combinedForRange,CS.flow,{
+    pL:52,vMin:-absMax*1.1,vMax:absMax*1.1,
+    yStep:absMax>3000?1000:absMax>1000?500:250,
     showZero:true,
     yFmt:v=>{const a=Math.abs(v);return a>=1000?`${(v/1000).toFixed(0)}k`:String(Math.round(v));},
     nowVal:latestFlowVal,
-    valLabel:v=>{const a=Math.abs(v);const str=a>=1000?`${(v/1000).toFixed(1)}k ft³/s`:`${Math.round(v)} ft³/s`;return str;},
+    valLabel:v=>{const a=Math.abs(v);return a>=1000?`${(v/1000).toFixed(1)}k ft³/s`:`${Math.round(v)} ft³/s`;},
     drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s,vMin,vMax,vRange)=>{
       const zeroY=ty(0);
-      const fg=ctx.createLinearGradient(0,pT,0,zeroY);fg.addColorStop(0,'rgba(0,230,118,0.28)');fg.addColorStop(1,'rgba(0,230,118,0)');
-      ctx.beginPath();ctx.moveTo(tx(vis[0].t.getTime()),zeroY);
-      for(let i=0;i<vis.length;i++){const x=tx(vis[i].t.getTime()),y=ty(Math.max(0,vis[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(vis[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.max(0,vis[i-1].v)),cpx,y,x,y);}}
-      ctx.lineTo(tx(vis[vis.length-1].t.getTime()),zeroY);ctx.closePath();ctx.fillStyle=fg;ctx.fill();
-      const eg=ctx.createLinearGradient(0,zeroY,0,pT+cH);eg.addColorStop(0,'rgba(255,82,82,0)');eg.addColorStop(1,'rgba(255,82,82,0.28)');
-      ctx.beginPath();ctx.moveTo(tx(vis[0].t.getTime()),zeroY);
-      for(let i=0;i<vis.length;i++){const x=tx(vis[i].t.getTime()),y=ty(Math.min(0,vis[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(vis[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.min(0,vis[i-1].v)),cpx,y,x,y);}}
-      ctx.lineTo(tx(vis[vis.length-1].t.getTime()),zeroY);ctx.closePath();ctx.fillStyle=eg;ctx.fill();
-      for(let i=1;i<vis.length;i++){const x0=tx(vis[i-1].t.getTime()),y0=ty(vis[i-1].v),x1=tx(vis[i].t.getTime()),y1=ty(vis[i].v),mid=(vis[i-1].v+vis[i].v)/2,cpx=(x0+x1)/2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.bezierCurveTo(cpx,y0,cpx,y1,x1,y1);ctx.strokeStyle=mid>=0?'rgba(0,230,118,0.85)':'rgba(255,82,82,0.85)';ctx.lineWidth=2*s;ctx.shadowColor=mid>=0?'#00e676':'#ff5252';ctx.shadowBlur=4*s;ctx.stroke();ctx.shadowBlur=0;}
+      const nowMs=Date.now();
+
+      // Helper: draw flood/ebb fill + colored line for a set of points
+      function drawFlowSegment(pts2,dashed){
+        if(pts2.length<2)return;
+        const fg=ctx.createLinearGradient(0,pT,0,zeroY);fg.addColorStop(0,'rgba(0,230,118,'+(dashed?'0.12':'0.28')+')');fg.addColorStop(1,'rgba(0,230,118,0)');
+        ctx.beginPath();ctx.moveTo(tx(pts2[0].t.getTime()),zeroY);
+        for(let i=0;i<pts2.length;i++){const x=tx(pts2[i].t.getTime()),y=ty(Math.max(0,pts2[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(pts2[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.max(0,pts2[i-1].v)),cpx,y,x,y);}}
+        ctx.lineTo(tx(pts2[pts2.length-1].t.getTime()),zeroY);ctx.closePath();ctx.fillStyle=fg;ctx.fill();
+        const eg=ctx.createLinearGradient(0,zeroY,0,pT+cH);eg.addColorStop(0,'rgba(255,82,82,0)');eg.addColorStop(1,'rgba(255,82,82,'+(dashed?'0.12':'0.28')+')');
+        ctx.beginPath();ctx.moveTo(tx(pts2[0].t.getTime()),zeroY);
+        for(let i=0;i<pts2.length;i++){const x=tx(pts2[i].t.getTime()),y=ty(Math.min(0,pts2[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(pts2[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.min(0,pts2[i-1].v)),cpx,y,x,y);}}
+        ctx.lineTo(tx(pts2[pts2.length-1].t.getTime()),zeroY);ctx.closePath();ctx.fillStyle=eg;ctx.fill();
+        if(dashed)ctx.setLineDash([5*s,4*s]);
+        for(let i=1;i<pts2.length;i++){const x0=tx(pts2[i-1].t.getTime()),y0=ty(pts2[i-1].v),x1=tx(pts2[i].t.getTime()),y1=ty(pts2[i].v),mid=(pts2[i-1].v+pts2[i].v)/2,cpx=(x0+x1)/2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.bezierCurveTo(cpx,y0,cpx,y1,x1,y1);ctx.strokeStyle=mid>=0?`rgba(0,230,118,${dashed?'0.45':'0.85'})`:`rgba(255,82,82,${dashed?'0.45':'0.85'})`;ctx.lineWidth=dashed?1.5*s:2*s;if(!dashed){ctx.shadowColor=mid>=0?'#00e676':'#ff5252';ctx.shadowBlur=4*s;}ctx.stroke();ctx.shadowBlur=0;}
+        if(dashed)ctx.setLineDash([]);
+      }
+
+      // Live data
+      const lp=livePts.filter(p=>p.t.getTime()<=nowMs+60000);
+      drawFlowSegment(lp,false);
+
+      // Forecast data (dashed)
+      if(forecastFlowPts.length){
+        const fp=forecastFlowPts.filter(p=>p.t.getTime()>=nowMs-300000);
+        drawFlowSegment(fp,true);
+        // FORECAST label
+        if(fp.length>2){
+          const midPt=fp[Math.floor(fp.length*0.5)];
+          ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';
+          ctx.fillText('▶ FORECAST',tx(midPt.t.getTime()),pT+10*s);
+        }
+      }
+
       if(zeroY>pT+18*s){ctx.fillStyle='rgba(0,230,118,0.3)';ctx.font=`${8*s}px Orbitron`;ctx.textAlign='left';ctx.fillText('▲ FLOOD',pL+4*s,pT+12*s);}
       if(zeroY<pT+cH-18*s){ctx.fillStyle='rgba(255,82,82,0.3)';ctx.font=`${8*s}px Orbitron`;ctx.textAlign='left';ctx.fillText('▼ EBB',pL+4*s,pT+cH-4*s);}
     }
@@ -630,8 +728,8 @@ function drawFlowChart(period){
 }
 
 // ── TOGGLE ────────────────────────────────────────────────────────
-function setGagePeriod(p){gagePeriod=p;document.getElementById('gage-1d').className='tbtn'+(p==='1d'?' active':'');document.getElementById('gage-7d').className='tbtn'+(p==='7d'?' active':'');drawGageChart(p);}
-function setFlowPeriod(p){flowPeriod=p;document.getElementById('flow-1d').className='tbtn'+(p==='1d'?' active':'');document.getElementById('flow-7d').className='tbtn'+(p==='7d'?' active':'');drawFlowChart(p);}
+function setGagePeriod(p){gagePeriod=p;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('gage-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawGageChart(p);}
+function setFlowPeriod(p){flowPeriod=p;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('flow-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawFlowChart(p);}
 
 // ── FISHING ────────────────────────────────────────────────────────
 function evalFishing(hilo){
@@ -686,14 +784,22 @@ attachZoom('flow-wrap',CS.flow,()=>drawFlowChart(flowPeriod));
 // ── MAIN LOAD ──────────────────────────────────────────────────────
 async function loadAll(){
   setStatus('Fetching live data...');
-  const today=ymd(new Date()),tomorrow=ymd(new Date(Date.now()+86400000)),weekEnd=ymd(new Date(Date.now()+6*86400000));
+  const today=ymd(new Date());
+  const past7=ymd(new Date(Date.now()-7*86400000));
+  const future7=ymd(new Date(Date.now()+7*86400000));
+  const tomorrow=ymd(new Date(Date.now()+86400000));
   try{
-    const[d1,d7,hiloExt,hw,wt,wx]=await Promise.all([
+    const[d1,d7,hiloExt,hw,wt,wx,predPast,predFuture]=await Promise.all([
       fetchUSGS('P1D'),fetchUSGS('P7D'),
-      fetchNoaaHiLo(today,tomorrow),fetchNoaaHiLo(today,weekEnd),
-      fetchWaterTemp(),fetchWeather()
+      fetchNoaaHiLo(today,tomorrow),
+      fetchNoaaHiLo(today,future7),
+      fetchWaterTemp(),fetchWeather(),
+      fetchNoaa6min(past7,today),       // 7 days past 6-min predictions
+      fetchNoaa6min(today,future7)      // 7 days future 6-min predictions
     ]);
     hist1d=d1;hist7d=d7;hiloWeek=hw;
+    noaaPred6min=predPast;
+    noaaPredFuture=predFuture;
     hiloToday=hiloExt.filter(p=>ymd(p.date)===today);
     renderStats(d7);renderWaterTemp(wt);renderWeather(wx);
     renderPills(hiloToday);renderTable(hiloToday);
