@@ -8,56 +8,57 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#060d14;--surface:#0a1520;--surface2:#0d1c2a;
-  --border:rgba(0,180,255,0.15);--cyan:#00b4ff;--cyan-glow:rgba(0,180,255,0.8);
-  --gold:#ffc843;--gold-glow:rgba(255,200,67,0.8);--green:#00e676;
-  --red:#ff5252;--orange:#ff9800;--muted:rgba(0,180,255,0.5);--text:#c8e8ff;
-  --fd:'Orbitron',sans-serif;--fm:'Share Tech Mono',monospace;
-}
+:root{--bg:#060d14;--surface:#0a1520;--surface2:#0d1c2a;--border:rgba(0,180,255,0.15);
+--cyan:#00b4ff;--cg:rgba(0,180,255,0.8);--gold:#ffc843;--gg:rgba(255,200,67,0.8);
+--green:#00e676;--red:#ff5252;--orange:#ff9800;--muted:rgba(0,180,255,0.5);--text:#c8e8ff;
+--fd:'Orbitron',sans-serif;--fm:'Share Tech Mono',monospace;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;min-height:100%;background:var(--bg);color:var(--text);font-family:var(--fm);font-size:14px;overflow-x:hidden}
 header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
 .logo-group{display:flex;align-items:center;gap:10px}
-.site-name{font-family:var(--fd);font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:2px;text-shadow:0 0 10px var(--cyan-glow);line-height:1.2}
+.site-name{font-family:var(--fd);font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:2px;text-shadow:0 0 10px var(--cg);line-height:1.2}
 .site-sub{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
 #clock{font-family:var(--fd);font-size:12px;color:var(--muted);letter-spacing:1px;text-align:right}
 main{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:480px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden}
 .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0.4}
-.card-title{font-family:var(--fd);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:12px}
-
-/* LIVE STATS ROW */
+.card-title{font-family:var(--fd);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px}
+/* STATS */
 .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:3px}
 .stat-label{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
 .stat-val{font-family:var(--fd);font-weight:900;line-height:1}
-.stat-val.gage{font-size:28px;color:var(--cyan);text-shadow:0 0 12px var(--cyan-glow)}
-.stat-val.flow{font-size:18px;color:var(--gold)}
-.stat-val.temp{font-size:18px;color:#64b5f6}
+.sv-gage{font-size:28px;color:var(--cyan);text-shadow:0 0 12px var(--cg)}
+.sv-flow{font-size:18px}.sv-temp{font-size:18px;color:#64b5f6}
 .stat-unit{font-size:9px;color:var(--muted)}
 .stat-trend{font-size:9px;margin-top:1px}
 .rising{color:var(--green)}.falling{color:var(--red)}.holding{color:var(--muted)}
+.flood-color{color:var(--green)}.ebb-color{color:var(--red)}
 .live-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);margin-right:4px;animation:pd 2s infinite;vertical-align:middle}
 @keyframes pd{0%,100%{opacity:1}50%{opacity:0.3}}
 .src-badge{font-size:8px;color:var(--muted);text-align:center;margin-top:6px;letter-spacing:1px}
-
 /* PILLS */
 .pills{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pill{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .plabel{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
 .ptype{font-family:var(--fd);font-size:11px;font-weight:700}
-.ptype.H{color:var(--gold);text-shadow:0 0 8px var(--gold-glow)}.ptype.L{color:#64b5f6}
+.ptype.H{color:var(--gold);text-shadow:0 0 8px var(--gg)}.ptype.L{color:#64b5f6}
 .ptime{font-family:var(--fd);font-size:18px;font-weight:700;color:var(--text)}
 .pht{font-size:12px;color:var(--muted)}.pcd{font-size:10px;color:var(--green);letter-spacing:1px}
-
-/* CHART */
-#chart-canvas{width:100%;height:175px;display:block}
+/* CHART TOGGLE */
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.chart-title{font-family:var(--fd);font-size:9px;font-weight:700;color:var(--muted);letter-spacing:3px;text-transform:uppercase}
+.toggle-group{display:flex;gap:4px}
+.tbtn{font-family:var(--fd);font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:1px;transition:all 0.15s}
+.tbtn.active{background:var(--cyan);color:#000;border-color:var(--cyan);font-weight:700}
+.tbtn:hover:not(.active){background:rgba(0,180,255,0.1);color:var(--cyan)}
+canvas.chart{width:100%;display:block}
 .clabels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px}
-.chart-legend{display:flex;gap:16px;margin-top:6px;font-size:9px;color:var(--muted);flex-wrap:wrap}
+.chart-legend{display:flex;gap:12px;margin-top:6px;font-size:9px;color:var(--muted);flex-wrap:wrap}
 .leg-item{display:flex;align-items:center;gap:5px}
 .leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-
+/* FLOW BAR */
+.flow-zero{position:relative}
 /* TABLE */
 .ttbl{width:100%;border-collapse:collapse}
 .ttbl th{font-size:9px;color:var(--muted);letter-spacing:2px;text-align:left;padding:4px 8px;text-transform:uppercase;border-bottom:1px solid var(--border)}
@@ -68,14 +69,12 @@ main{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:480px;ma
 .tl{color:#64b5f6;font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:1px}
 .tht{font-family:var(--fd);font-weight:700;color:var(--text)}
 .nbadge{display:inline-block;background:var(--green);color:#000;font-size:8px;padding:1px 5px;border-radius:3px;margin-left:5px;font-family:var(--fd);letter-spacing:1px;vertical-align:middle}
-
-/* FISHING */
+/* FISH */
 .fish-wrap{display:flex;align-items:flex-start;gap:10px}
 .fish-icon{font-size:28px;flex-shrink:0;margin-top:2px}
 .fish-title{font-family:var(--fd);font-size:11px;font-weight:700;margin-bottom:4px}
 .fish-title.excellent{color:var(--green)}.fish-title.good{color:var(--gold)}.fish-title.fair{color:var(--orange)}
 .fish-reason{font-size:10px;color:var(--muted);line-height:1.6}
-
 /* WEEKLY */
 #wstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .wday{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 4px;text-align:center;display:flex;flex-direction:column;gap:2px}
@@ -83,7 +82,6 @@ main{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:480px;ma
 .wdname{font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
 .wdhi{font-size:10px;color:var(--gold);font-family:var(--fd);font-weight:700}
 .wdlo{font-size:10px;color:#64b5f6;font-family:var(--fd)}
-
 /* STATUS */
 #statusbar{text-align:center;font-size:10px;color:var(--muted);padding:4px;display:flex;align-items:center;justify-content:center;gap:6px}
 .sdot{width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0}
@@ -107,71 +105,81 @@ main{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:480px;ma
   </div>
   <div id="clock">--:-- --</div>
 </header>
-
 <main>
 
-  <!-- LIVE USGS STATS -->
+  <!-- LIVE STATS -->
   <div class="card">
-    <div class="card-title"><span class="live-dot"></span>Live Gauge Data — USGS</div>
+    <div class="card-title"><span class="live-dot"></span>Live Gauge — USGS 11313433</div>
     <div class="stats-row">
       <div class="stat-box">
         <div class="stat-label">Gage Ht</div>
-        <div class="stat-val gage" id="sv-gage">--.-</div>
+        <div class="stat-val sv-gage" id="sv-gage">--.-</div>
         <div class="stat-unit">feet</div>
-        <div class="stat-trend" id="st-gage">--</div>
+        <div class="stat-trend" id="st-gage">&nbsp;</div>
       </div>
       <div class="stat-box">
         <div class="stat-label">Flow</div>
-        <div class="stat-val flow" id="sv-flow">----</div>
+        <div class="stat-val sv-flow" id="sv-flow">----</div>
         <div class="stat-unit">ft³/s</div>
-        <div class="stat-trend" id="st-flow">--</div>
+        <div class="stat-trend" id="st-flow">&nbsp;</div>
       </div>
       <div class="stat-box">
         <div class="stat-label">Water Temp</div>
-        <div class="stat-val temp" id="sv-temp">--.-</div>
-        <div class="stat-unit" id="su-temp">°F</div>
+        <div class="stat-val sv-temp" id="sv-temp">--.-</div>
+        <div class="stat-unit">°F</div>
         <div class="stat-trend" id="st-temp">&nbsp;</div>
       </div>
     </div>
     <div class="src-badge" id="usgs-updated">Connecting to USGS...</div>
   </div>
 
-  <!-- NEXT TIDES (NOAA predicted) -->
+  <!-- NEXT TIDES -->
   <div class="card">
     <div class="card-title">Next Tides — NOAA Predicted</div>
     <div class="pills">
-      <div class="pill">
-        <div class="plabel">Next</div>
-        <div class="ptype" id="pn-t">--</div>
-        <div class="ptime" id="pn-time">--:--</div>
-        <div class="pht" id="pn-h">-- ft</div>
-        <div class="pcd" id="pn-cd">--</div>
-      </div>
-      <div class="pill">
-        <div class="plabel">After That</div>
-        <div class="ptype" id="pa-t">--</div>
-        <div class="ptime" id="pa-time">--:--</div>
-        <div class="pht" id="pa-h">-- ft</div>
-        <div class="pcd" id="pa-cd">--</div>
-      </div>
+      <div class="pill"><div class="plabel">Next</div><div class="ptype" id="pn-t">--</div><div class="ptime" id="pn-time">--:--</div><div class="pht" id="pn-h">-- ft</div><div class="pcd" id="pn-cd">--</div></div>
+      <div class="pill"><div class="plabel">After That</div><div class="ptype" id="pa-t">--</div><div class="ptime" id="pa-time">--:--</div><div class="pht" id="pa-h">-- ft</div><div class="pcd" id="pa-cd">--</div></div>
     </div>
   </div>
 
-  <!-- CHART -->
+  <!-- GAGE HEIGHT CHART -->
   <div class="card">
-    <div class="card-title">7-Day Gage Height — USGS Live</div>
-    <canvas id="chart-canvas" aria-label="Gage height history chart"></canvas>
-    <div class="clabels" id="chart-xlabels"></div>
+    <div class="chart-header">
+      <div class="chart-title">Gage Height — USGS Live</div>
+      <div class="toggle-group">
+        <button class="tbtn" id="gage-1d" onclick="setGagePeriod('1d')">1D</button>
+        <button class="tbtn active" id="gage-7d" onclick="setGagePeriod('7d')">7D</button>
+      </div>
+    </div>
+    <canvas class="chart" id="gage-canvas" height="160" aria-label="Gage height chart"></canvas>
+    <div class="clabels" id="gage-xlabels">&nbsp;</div>
     <div class="chart-legend">
       <div class="leg-item"><div class="leg-dot" style="background:#00b4ff"></div><span>Gage Height (ft)</span></div>
-      <div class="leg-item"><div class="leg-dot" style="background:#ffc843"></div><span>NOAA Predicted High</span></div>
-      <div class="leg-item"><div class="leg-dot" style="background:#64b5f6"></div><span>NOAA Predicted Low</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#ffc843"></div><span>Pred. High</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#64b5f6"></div><span>Pred. Low</span></div>
+    </div>
+  </div>
+
+  <!-- FLOW CHART -->
+  <div class="card">
+    <div class="chart-header">
+      <div class="chart-title">Inflow / Outflow — USGS</div>
+      <div class="toggle-group">
+        <button class="tbtn" id="flow-1d" onclick="setFlowPeriod('1d')">1D</button>
+        <button class="tbtn active" id="flow-7d" onclick="setFlowPeriod('7d')">7D</button>
+      </div>
+    </div>
+    <canvas class="chart" id="flow-canvas" height="160" aria-label="Flow chart"></canvas>
+    <div class="clabels" id="flow-xlabels">&nbsp;</div>
+    <div class="chart-legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#00e676"></div><span>Flood (Inflow)</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#ff5252"></div><span>Ebb (Outflow)</span></div>
     </div>
   </div>
 
   <!-- TODAY SCHEDULE -->
   <div class="card">
-    <div class="card-title">Today's Tide Schedule — NOAA Predicted</div>
+    <div class="card-title">Today's Tide Schedule — NOAA</div>
     <table class="ttbl">
       <thead><tr><th>Time</th><th>Type</th><th>Pred. Ht</th></tr></thead>
       <tbody id="ttbody"><tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted)">Loading...</td></tr></tbody>
@@ -183,16 +191,13 @@ main{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:480px;ma
     <div class="card-title">Delta Catfish Conditions</div>
     <div class="fish-wrap">
       <div class="fish-icon" id="ficon">🎣</div>
-      <div>
-        <div class="fish-title" id="ftitle">Evaluating...</div>
-        <div class="fish-reason" id="freason">Waiting for live data...</div>
-      </div>
+      <div><div class="fish-title" id="ftitle">Evaluating...</div><div class="fish-reason" id="freason">Waiting for data...</div></div>
     </div>
   </div>
 
   <!-- WEEKLY -->
   <div class="card">
-    <div class="card-title">7-Day Predicted Highs &amp; Lows — NOAA</div>
+    <div class="card-title">7-Day Predicted — NOAA</div>
     <div id="wstrip">
       <div class="wday skeleton" style="height:56px"></div>
       <div class="wday skeleton" style="height:56px"></div>
@@ -208,362 +213,312 @@ main{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:480px;ma
 </main>
 
 <script>
-// ── CONFIG ─────────────────────────────────────────────────────────
-const USGS_SITE = '11313433';
-const NOAA_STATION = '9415053';
-const USGS_API = 'https://waterservices.usgs.gov/nwis/iv/';
-const NOAA_API = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
+const USGS_SITE='11313433', NOAA_STATION='9415053';
+const USGS_IV='https://waterservices.usgs.gov/nwis/iv/';
+const NOAA_API='https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
+const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const DS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-// ── STATE ──────────────────────────────────────────────────────────
-let prevGage = null, prevFlow = null;
-let upcoming = [];
+let hist1d={}, hist7d={}, hiloWeek=[], hiloToday=[];
+let gagePeriod='7d', flowPeriod='7d';
+let upcoming=[], prevGage=null;
 
 // ── CLOCK ──────────────────────────────────────────────────────────
-function tick() {
-  const n = new Date(); let h = n.getHours(), m = n.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  document.getElementById('clock').textContent =
-    `${h}:${String(m).padStart(2,'0')} ${ap}  ${MS[n.getMonth()]} ${n.getDate()}`;
-}
-tick(); setInterval(tick, 1000);
+function tick(){const n=new Date();let h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;document.getElementById('clock').textContent=`${h}:${String(m).padStart(2,'0')} ${ap}  ${MS[n.getMonth()]} ${n.getDate()}`;}
+tick();setInterval(tick,1000);
 
 // ── HELPERS ────────────────────────────────────────────────────────
-function ymd(d) { return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
-function parseNoaaT(s) { const [dp,tp]=s.split(' ');const [y,mo,d]=dp.split('-').map(Number);const [h,mi]=tp.split(':').map(Number);return new Date(y,mo-1,d,h,mi); }
-function fmt12(d) { let h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap}`; }
-function cd(f) { const diff=f-Date.now();if(diff<0)return'passed';const mn=Math.floor(diff/60000),hr=Math.floor(mn/60),mi=mn%60;return hr>0?`in ${hr}h ${mi}m`:`in ${mi}m`; }
-function setStatus(msg, cls='') { document.getElementById('stext').textContent=msg;document.getElementById('sdot').className='sdot'+(cls?' '+cls:''); }
-function cToF(c) { return (parseFloat(c)*9/5+32).toFixed(1); }
+function ymd(d){return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
+function parseNoaaT(s){const[dp,tp]=s.split(' ');const[y,mo,d]=dp.split('-').map(Number);const[h,mi]=tp.split(':').map(Number);return new Date(y,mo-1,d,h,mi);}
+function fmt12(d){let h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap}`;}
+function fmtShort(d){return `${MS[d.getMonth()].slice(0,3)} ${d.getDate()}`;}
+function cd(f){const diff=f-Date.now();if(diff<0)return'passed';const mn=Math.floor(diff/60000),hr=Math.floor(mn/60),mi=mn%60;return hr>0?`in ${hr}h ${mi}m`:`in ${mi}m`;}
+function setStatus(msg,cls=''){document.getElementById('stext').textContent=msg;document.getElementById('sdot').className='sdot'+(cls?' '+cls:'');}
+function cToF(c){return(parseFloat(c)*9/5+32).toFixed(1);}
 
-// ── USGS FETCH ─────────────────────────────────────────────────────
-// parameterCd: 00065=gage height, 00060=streamflow, 00010=water temp
-async function fetchUSGSLatest() {
-  const url = `${USGS_API}?sites=${USGS_SITE}&parameterCd=00065,00060,00010&format=json&siteStatus=all`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('USGS HTTP ' + r.status);
-  const d = await r.json();
-  const result = {};
-  for (const ts of d.value.timeSeries) {
-    const code = ts.variable.variableCode[0].value;
-    const vals = ts.values[0].value;
-    const latest = vals.length ? vals[vals.length-1] : null;
-    if (latest) result[code] = { val: latest.value, time: latest.dateTime };
+// ── USGS ───────────────────────────────────────────────────────────
+async function fetchUSGS(period){
+  const url=`${USGS_IV}?sites=${USGS_SITE}&parameterCd=00065,00060,00010&format=json&period=${period}&siteStatus=all`;
+  const r=await fetch(url);if(!r.ok)throw new Error('USGS '+r.status);
+  const d=await r.json();const result={};
+  for(const ts of d.value.timeSeries){
+    const code=ts.variable.variableCode[0].value;
+    result[code]=ts.values[0].value.map(v=>({t:new Date(v.dateTime),v:parseFloat(v.value)})).filter(v=>!isNaN(v.v)&&v.v>-9990);
+    result[code+'_latest']=result[code].length?result[code][result[code].length-1]:null;
   }
   return result;
 }
 
-async function fetchUSGSHistory7d() {
-  const url = `${USGS_API}?sites=${USGS_SITE}&parameterCd=00065,00060&format=json&period=P7D&siteStatus=all`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('USGS HTTP ' + r.status);
-  const d = await r.json();
-  const result = {};
-  for (const ts of d.value.timeSeries) {
-    const code = ts.variable.variableCode[0].value;
-    result[code] = ts.values[0].value
-      .map(v => ({ t: new Date(v.dateTime), v: parseFloat(v.value) }))
-      .filter(v => !isNaN(v.v));
-  }
-  return result;
+// ── NOAA ───────────────────────────────────────────────────────────
+async function fetchNoaaHiLo(begin,end){
+  const u=new URL(NOAA_API);
+  Object.entries({station:NOAA_STATION,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'hilo',application:'dutch_slough_v5',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u.toString());if(!r.ok)throw new Error('NOAA '+r.status);
+  const d=await r.json();if(d.error)throw new Error(d.error.message);
+  return(d.predictions||[]).map(p=>({...p,date:parseNoaaT(p.t),h:parseFloat(p.v)}));
 }
 
-// ── NOAA FETCH ─────────────────────────────────────────────────────
-async function noaaHiLo(begin, end) {
-  const u = new URL(NOAA_API);
-  Object.entries({ station: NOAA_STATION, product: 'predictions', begin_date: begin,
-    end_date: end, datum: 'MLLW', units: 'english', time_zone: 'lst_ldt',
-    interval: 'hilo', application: 'dutch_slough_v4', format: 'json' })
-    .forEach(([k,v]) => u.searchParams.set(k,v));
-  const r = await fetch(u.toString());
-  if (!r.ok) throw new Error('NOAA HTTP ' + r.status);
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message);
-  return (d.predictions || []).map(p => ({ ...p, date: parseNoaaT(p.t), h: parseFloat(p.v) }));
-}
-
-// ── RENDER USGS STATS ──────────────────────────────────────────────
-function renderUSGS(data) {
-  // Gage height (00065)
-  if (data['00065']) {
-    const g = parseFloat(data['00065'].val);
-    document.getElementById('sv-gage').textContent = isNaN(g) ? '--' : g.toFixed(2);
-    if (prevGage !== null) {
-      const diff = g - prevGage;
-      const el = document.getElementById('st-gage');
-      if (Math.abs(diff) < 0.01) { el.innerHTML='<span class="holding">▬ Steady</span>'; }
-      else if (diff > 0) { el.innerHTML=`<span class="rising">▲ +${diff.toFixed(2)}</span>`; }
-      else { el.innerHTML=`<span class="falling">▼ ${diff.toFixed(2)}</span>`; }
-    } else {
-      document.getElementById('st-gage').innerHTML='<span class="holding">USGS Live</span>';
-    }
-    prevGage = g;
+// ── RENDER STATS ───────────────────────────────────────────────────
+function renderStats(data){
+  const g=data['00065_latest'],f=data['00060_latest'],t=data['00010_latest'];
+  if(g){
+    const gv=g.v;
+    document.getElementById('sv-gage').textContent=gv.toFixed(2);
+    if(prevGage!==null){const diff=gv-prevGage;const el=document.getElementById('st-gage');if(Math.abs(diff)<0.01)el.innerHTML='<span class="holding">▬ Steady</span>';else if(diff>0)el.innerHTML=`<span class="rising">▲ +${diff.toFixed(2)}</span>`;else el.innerHTML=`<span class="falling">▼ ${diff.toFixed(2)}</span>`;}
+    else document.getElementById('st-gage').innerHTML='<span class="holding">USGS Live</span>';
+    prevGage=gv;
   }
-  // Flow (00060) — can be negative (tidal reversal)
-  if (data['00060']) {
-    const f = parseFloat(data['00060'].val);
-    const fEl = document.getElementById('sv-flow');
-    if (!isNaN(f)) {
-      fEl.textContent = Math.abs(f) >= 1000 ? `${(f/1000).toFixed(1)}k` : String(Math.round(f));
-      const dir = f < 0 ? '<span class="falling">◀ Ebb (out)</span>' : '<span class="rising">▶ Flood (in)</span>';
-      document.getElementById('st-flow').innerHTML = dir;
-    }
-    prevFlow = f;
+  if(f){
+    const fv=f.v;
+    const fEl=document.getElementById('sv-flow');
+    fEl.textContent=Math.abs(fv)>=1000?`${(fv/1000).toFixed(1)}k`:String(Math.round(fv));
+    fEl.className=`stat-val sv-flow ${fv>=0?'flood-color':'ebb-color'}`;
+    document.getElementById('st-flow').innerHTML=fv>=0?'<span class="flood-color">▶ FLOOD</span>':'<span class="ebb-color">◀ EBB</span>';
   }
-  // Temp (00010) - in Celsius from USGS
-  if (data['00010']) {
-    const t = parseFloat(data['00010'].val);
-    if (!isNaN(t)) {
-      document.getElementById('sv-temp').textContent = cToF(t);
-      document.getElementById('su-temp').textContent = '°F';
-      document.getElementById('st-temp').innerHTML = `<span class="holding">(${t}°C)</span>`;
-    } else {
-      document.getElementById('sv-temp').textContent = '--';
-    }
-  }
-  // Timestamp
-  const ts = data['00065']?.time || data['00060']?.time;
-  if (ts) {
-    const d = new Date(ts);
-    document.getElementById('usgs-updated').textContent = `USGS · Updated ${fmt12(d)} · 15-min interval`;
-  }
+  if(t){
+    const tv=parseFloat(t.v);
+    document.getElementById('sv-temp').textContent=isNaN(tv)?'--':cToF(tv);
+    document.getElementById('st-temp').innerHTML=isNaN(tv)?'':'<span class="holding">'+tv+'°C</span>';
+  }else{document.getElementById('sv-temp').textContent='--';document.getElementById('st-temp').textContent='No sensor';}
+  const ts=g?g.t:f?f.t:null;
+  if(ts)document.getElementById('usgs-updated').textContent=`USGS · Updated ${fmt12(ts)} · 15-min interval`;
 }
 
 // ── RENDER PILLS ───────────────────────────────────────────────────
-function renderPills(hilo) {
-  const now = new Date();
-  upcoming = hilo.filter(p => p.date > now).sort((a,b) => a.date - b.date);
-  const set = (pid, p) => {
-    if (!p) return;
-    document.getElementById(`p${pid}-t`).textContent = p.type==='H' ? 'HIGH' : 'LOW';
-    document.getElementById(`p${pid}-t`).className = `ptype ${p.type}`;
-    document.getElementById(`p${pid}-time`).textContent = fmt12(p.date);
-    document.getElementById(`p${pid}-h`).textContent = `${p.h.toFixed(2)} ft pred.`;
-    document.getElementById(`p${pid}-cd`).textContent = cd(p.date);
-  };
-  set('n', upcoming[0]); set('a', upcoming[1]);
+function renderPills(hilo){
+  const now=new Date();
+  upcoming=hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date);
+  const set=(pid,p)=>{if(!p)return;document.getElementById(`p${pid}-t`).textContent=p.type==='H'?'HIGH':'LOW';document.getElementById(`p${pid}-t`).className=`ptype ${p.type}`;document.getElementById(`p${pid}-time`).textContent=fmt12(p.date);document.getElementById(`p${pid}-h`).textContent=`${p.h.toFixed(2)} ft`;document.getElementById(`p${pid}-cd`).textContent=cd(p.date);};
+  set('n',upcoming[0]);set('a',upcoming[1]);
 }
 
 // ── RENDER TABLE ───────────────────────────────────────────────────
-function renderTable(hilo) {
-  const now = new Date();
-  const nextDate = hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date)[0]?.date.getTime();
-  document.getElementById('ttbody').innerHTML = hilo.map(p => {
-    const past = p.date < now, isNxt = p.date.getTime() === nextDate;
-    return `<tr class="${past?'past':isNxt?'nxt':''}">
-      <td>${fmt12(p.date)}${isNxt?'<span class="nbadge">NEXT</span>':''}</td>
-      <td><span class="${p.type==='H'?'th':'tl'}">${p.type==='H'?'HIGH':'LOW'}</span></td>
-      <td class="tht">${p.h.toFixed(2)} ft</td></tr>`;
-  }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>';
+function renderTable(hilo){
+  const now=new Date(),nextDate=hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date)[0]?.date.getTime();
+  document.getElementById('ttbody').innerHTML=hilo.map(p=>{const past=p.date<now,isNxt=p.date.getTime()===nextDate;return `<tr class="${past?'past':isNxt?'nxt':''}"><td>${fmt12(p.date)}${isNxt?'<span class="nbadge">NEXT</span>':''}</td><td><span class="${p.type==='H'?'th':'tl'}">${p.type==='H'?'HIGH':'LOW'}</span></td><td class="tht">${p.h.toFixed(2)} ft</td></tr>`;}).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>';
 }
 
-// ── RENDER CHART ───────────────────────────────────────────────────
-function renderChart(history, hiloWeek) {
-  const c = document.getElementById('chart-canvas');
-  const dpr = window.devicePixelRatio || 1;
-  c.width = c.offsetWidth * dpr; c.height = 175 * dpr; c.style.height = '175px';
-  const ctx = c.getContext('2d'), s = dpr, W = c.width, H = c.height;
-  const pL=42*s, pR=10*s, pT=14*s, pB=20*s, cW=W-pL-pR, cH=H-pT-pB;
-
-  const gageData = history['00065'] || [];
-  if (!gageData.length) return;
-
-  const vals = gageData.map(p=>p.v).filter(v=>v>-9990);
-  const tMin = gageData[0].t.getTime(), tMax = gageData[gageData.length-1].t.getTime();
-  const tRange = tMax - tMin;
-  const vMin = Math.min(...vals) - 0.3, vMax = Math.max(...vals) + 0.5, vRange = vMax - vMin;
-
-  const tx = t => pL + ((t.getTime()-tMin)/tRange)*cW;
-  const ty = v => pT + (1-(v-vMin)/vRange)*cH;
-
-  ctx.fillStyle = '#060d14'; ctx.fillRect(0,0,W,H);
-
+// ── DRAW GAGE CHART ────────────────────────────────────────────────
+function drawGageChart(period){
+  const data=period==='1d'?hist1d:hist7d;
+  const pts=(data['00065']||[]);
+  const hilo=hiloWeek;
+  const c=document.getElementById('gage-canvas');
+  const dpr=window.devicePixelRatio||1;
+  c.width=c.offsetWidth*dpr;const H=160*dpr;c.height=H;c.style.height='160px';
+  const ctx=c.getContext('2d'),s=dpr,W=c.width;
+  const pL=42*s,pR=10*s,pT=16*s,pB=24*s,cW=W-pL-pR,cH=H-pT-pB;
+  ctx.fillStyle='#060d14';ctx.fillRect(0,0,W,H);
+  if(!pts.length){ctx.fillStyle='rgba(0,180,255,0.3)';ctx.font=`${10*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText('No data',W/2,H/2);return;}
+  const vals=pts.map(p=>p.v);
+  const tMin=pts[0].t.getTime(),tMax=pts[pts.length-1].t.getTime(),tRange=tMax-tMin;
+  const vMin=Math.min(...vals)-0.2,vMax=Math.max(...vals)+0.4,vRange=vMax-vMin;
+  const tx=t=>pL+((t-tMin)/tRange)*cW;
+  const ty=v=>pT+(1-(v-vMin)/vRange)*cH;
   // Grid
-  const gridVals = [];
-  for (let v = Math.floor(vMin); v <= vMax + 1; v += 1) if (v >= vMin && v <= vMax) gridVals.push(v);
-  gridVals.forEach(v => {
-    const y = ty(v);
-    ctx.strokeStyle='rgba(0,180,255,0.08)'; ctx.lineWidth=1*s; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(W-pR,y); ctx.stroke();
-    ctx.fillStyle='rgba(0,180,255,0.45)'; ctx.font=`${9*s}px Share Tech Mono,monospace`; ctx.textAlign='right';
-    ctx.fillText(v.toFixed(0), pL-4*s, y+3*s);
-  });
-
-  // Zero flow reference (gage height ~0 ft would be odd but mark tide reversal area)
-  // Day separators
-  const startDay = new Date(gageData[0].t); startDay.setHours(0,0,0,0);
-  for (let i = 1; i <= 7; i++) {
-    const d = new Date(startDay.getTime() + i*86400000);
-    if (d.getTime() >= tMin && d.getTime() <= tMax) {
-      const x = tx(d);
-      ctx.strokeStyle='rgba(0,180,255,0.12)'; ctx.lineWidth=1*s; ctx.setLineDash([2*s,4*s]);
-      ctx.beginPath(); ctx.moveTo(x,pT); ctx.lineTo(x,pT+cH); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle='rgba(0,180,255,0.35)'; ctx.font=`${8*s}px Share Tech Mono,monospace`; ctx.textAlign='center';
-      ctx.fillText(DS[d.getDay()], x, pT+cH+12*s);
-    }
+  const step=vRange>4?1:vRange>2?0.5:0.25;
+  for(let v=Math.ceil(vMin/step)*step;v<=vMax;v+=step){
+    const y=ty(v);
+    ctx.strokeStyle='rgba(0,180,255,0.08)';ctx.lineWidth=1*s;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(W-pR,y);ctx.stroke();
+    ctx.fillStyle='rgba(0,180,255,0.45)';ctx.font=`${8*s}px Share Tech Mono,monospace`;ctx.textAlign='right';
+    ctx.fillText(v.toFixed(1),pL-3*s,y+3*s);
   }
-
-  // Fill gradient
-  const filtered = gageData.filter(p=>p.v>-9990);
-  const grad = ctx.createLinearGradient(0,pT,0,pT+cH);
-  grad.addColorStop(0,'rgba(0,180,255,0.22)'); grad.addColorStop(1,'rgba(0,180,255,0)');
-  ctx.beginPath(); ctx.moveTo(tx(filtered[0].t), ty(filtered[0].v));
-  for (let i=1; i<filtered.length; i++) {
-    const cpx = (tx(filtered[i-1].t).valueOf()+tx(filtered[i].t).valueOf())/2;
-    ctx.bezierCurveTo(cpx, ty(filtered[i-1].v), cpx, ty(filtered[i].v), tx(filtered[i].t), ty(filtered[i].v));
+  // Day/hour separators + x-labels
+  const xlabels=[];
+  if(period==='7d'){
+    const sd=new Date(pts[0].t);sd.setHours(0,0,0,0);
+    for(let i=1;i<=8;i++){const d=new Date(sd.getTime()+i*86400000);if(d.getTime()>=tMin&&d.getTime()<=tMax){const x=tx(d.getTime());ctx.strokeStyle='rgba(0,180,255,0.1)';ctx.lineWidth=1*s;ctx.setLineDash([2*s,4*s]);ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+cH);ctx.stroke();ctx.setLineDash([]);xlabels.push({x,label:DS[d.getDay()]});}}
+  }else{
+    for(let h=0;h<=24;h+=6){const d=new Date(pts[0].t);d.setHours(h,0,0,0);if(d.getTime()>=tMin&&d.getTime()<=tMax){const x=tx(d.getTime());ctx.strokeStyle='rgba(0,180,255,0.1)';ctx.lineWidth=1*s;ctx.setLineDash([2*s,4*s]);ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+cH);ctx.stroke();ctx.setLineDash([]);let lbl=d.getHours()===0?'12AM':d.getHours()===12?'12PM':d.getHours()<12?d.getHours()+'AM':(d.getHours()-12)+'PM';xlabels.push({x,label:lbl});}}
   }
-  ctx.lineTo(tx(filtered[filtered.length-1].t), pT+cH);
-  ctx.lineTo(tx(filtered[0].t), pT+cH);
-  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
-
+  // Render x-labels via canvas (avoid DOM)
+  xlabels.forEach(({x,label})=>{ctx.fillStyle='rgba(0,180,255,0.35)';ctx.font=`${8*s}px Share Tech Mono,monospace`;ctx.textAlign='center';ctx.fillText(label,x,pT+cH+13*s);});
+  document.getElementById('gage-xlabels').textContent='';
+  // Fill
+  const grad=ctx.createLinearGradient(0,pT,0,pT+cH);grad.addColorStop(0,'rgba(0,180,255,0.22)');grad.addColorStop(1,'rgba(0,180,255,0)');
+  ctx.beginPath();ctx.moveTo(tx(pts[0].t.getTime()),ty(pts[0].v));
+  for(let i=1;i<pts.length;i++){const cpx=(tx(pts[i-1].t.getTime())+tx(pts[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(pts[i-1].v),cpx,ty(pts[i].v),tx(pts[i].t.getTime()),ty(pts[i].v));}
+  ctx.lineTo(tx(pts[pts.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(pts[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
   // Line
-  ctx.beginPath(); ctx.moveTo(tx(filtered[0].t), ty(filtered[0].v));
-  for (let i=1; i<filtered.length; i++) {
-    const cpx = (tx(filtered[i-1].t).valueOf()+tx(filtered[i].t).valueOf())/2;
-    ctx.bezierCurveTo(cpx, ty(filtered[i-1].v), cpx, ty(filtered[i].v), tx(filtered[i].t), ty(filtered[i].v));
-  }
-  ctx.strokeStyle='#00b4ff'; ctx.lineWidth=2*s; ctx.shadowColor='#00b4ff'; ctx.shadowBlur=5*s; ctx.stroke(); ctx.shadowBlur=0;
-
-  // NOAA H/L markers on chart
-  hiloWeek.forEach(p => {
-    if (p.date.getTime() < tMin || p.date.getTime() > tMax) return;
-    const x = tx(p.date);
-    // Find closest gage reading to get y position
-    let closest = filtered[0];
-    filtered.forEach(g => { if (Math.abs(g.t-p.date) < Math.abs(closest.t-p.date)) closest=g; });
-    const y = ty(closest.v);
-    const col = p.type==='H' ? '#ffc843' : '#64b5f6';
-    ctx.beginPath(); ctx.arc(x, y, 4*s, 0, Math.PI*2);
-    ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=6*s; ctx.fill(); ctx.shadowBlur=0;
+  ctx.beginPath();ctx.moveTo(tx(pts[0].t.getTime()),ty(pts[0].v));
+  for(let i=1;i<pts.length;i++){const cpx=(tx(pts[i-1].t.getTime())+tx(pts[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(pts[i-1].v),cpx,ty(pts[i].v),tx(pts[i].t.getTime()),ty(pts[i].v));}
+  ctx.strokeStyle='#00b4ff';ctx.lineWidth=2*s;ctx.shadowColor='#00b4ff';ctx.shadowBlur=5*s;ctx.stroke();ctx.shadowBlur=0;
+  // NOAA H/L dots
+  hilo.forEach(p=>{
+    if(p.date.getTime()<tMin||p.date.getTime()>tMax)return;
+    const x=tx(p.date.getTime());
+    let closest=pts[0];pts.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(closest.t-p.date))closest=g;});
+    const y=ty(closest.v);const col=p.type==='H'?'#ffc843':'#64b5f6';
+    ctx.beginPath();ctx.arc(x,y,4*s,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6*s;ctx.fill();ctx.shadowBlur=0;
   });
-
-  // NOW line
-  const now = new Date();
-  if (now >= gageData[0].t && now <= gageData[gageData.length-1].t) {
-    const nowX = tx(now);
-    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1*s; ctx.setLineDash([3*s,3*s]);
-    ctx.beginPath(); ctx.moveTo(nowX,pT); ctx.lineTo(nowX,pT+cH); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='rgba(200,232,255,0.7)'; ctx.font=`${7*s}px Share Tech Mono,monospace`; ctx.textAlign='center';
-    ctx.fillText('NOW', nowX, pT-3*s);
-    // Current gage dot
-    if (prevGage !== null) {
-      ctx.beginPath(); ctx.arc(nowX, ty(prevGage), 6*s, 0, Math.PI*2);
-      ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=10*s; ctx.fill(); ctx.shadowBlur=0;
-    }
+  // Now line
+  const now=new Date();
+  if(now.getTime()>=tMin&&now.getTime()<=tMax){
+    const nx=tx(now.getTime());
+    ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1*s;ctx.setLineDash([3*s,3*s]);
+    ctx.beginPath();ctx.moveTo(nx,pT);ctx.lineTo(nx,pT+cH);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(200,232,255,0.6)';ctx.font=`${7*s}px Share Tech Mono,monospace`;ctx.textAlign='center';ctx.fillText('NOW',nx,pT-4*s);
+    if(prevGage!==null){ctx.beginPath();ctx.arc(nx,ty(prevGage),6*s,0,Math.PI*2);ctx.fillStyle='#fff';ctx.shadowColor='#fff';ctx.shadowBlur=10*s;ctx.fill();ctx.shadowBlur=0;}
   }
+}
 
-  // X-axis labels handled by day separators above
-  document.getElementById('chart-xlabels').textContent = '';
+// ── DRAW FLOW CHART ────────────────────────────────────────────────
+function drawFlowChart(period){
+  const data=period==='1d'?hist1d:hist7d;
+  const pts=(data['00060']||[]);
+  const c=document.getElementById('flow-canvas');
+  const dpr=window.devicePixelRatio||1;
+  c.width=c.offsetWidth*dpr;const H=160*dpr;c.height=H;c.style.height='160px';
+  const ctx=c.getContext('2d'),s=dpr,W=c.width;
+  const pL=52*s,pR=10*s,pT=16*s,pB=24*s,cW=W-pL-pR,cH=H-pT-pB;
+  ctx.fillStyle='#060d14';ctx.fillRect(0,0,W,H);
+  if(!pts.length){ctx.fillStyle='rgba(0,180,255,0.3)';ctx.font=`${10*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText('No data',W/2,H/2);return;}
+  const tMin=pts[0].t.getTime(),tMax=pts[pts.length-1].t.getTime(),tRange=tMax-tMin;
+  const vals=pts.map(p=>p.v);
+  const rawMin=Math.min(...vals),rawMax=Math.max(...vals);
+  const vMin=rawMin<0?rawMin*1.05:rawMin*0.95;
+  const vMax=rawMax>0?rawMax*1.05:rawMax*0.95;
+  const vRange=vMax-vMin;
+  const tx=t=>pL+((t-tMin)/tRange)*cW;
+  const ty=v=>pT+(1-(v-vMin)/vRange)*cH;
+  const zeroY=ty(0);
+  // Grid
+  const absMax=Math.max(Math.abs(rawMin),Math.abs(rawMax));
+  const gstep=absMax>3000?1000:absMax>1000?500:250;
+  for(let v=-Math.ceil(absMax/gstep)*gstep;v<=Math.ceil(absMax/gstep)*gstep;v+=gstep){
+    if(v<vMin||v>vMax)continue;
+    const y=ty(v);
+    ctx.strokeStyle=v===0?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.05)';
+    ctx.lineWidth=v===0?1.5*s:1*s;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(W-pR,y);ctx.stroke();
+    const lbl=Math.abs(v)>=1000?`${v/1000}k`:String(v);
+    ctx.fillStyle=v===0?'rgba(255,255,255,0.5)':v>0?'rgba(0,230,118,0.5)':'rgba(255,82,82,0.5)';
+    ctx.font=`${8*s}px Share Tech Mono,monospace`;ctx.textAlign='right';
+    ctx.fillText(lbl,pL-3*s,y+3*s);
+  }
+  // Zero label
+  ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font=`${7*s}px Share Tech Mono`;ctx.textAlign='right';
+  ctx.fillText('0',pL-3*s,zeroY+3*s);
+  // FLOOD / EBB labels
+  if(zeroY>pT+20*s){ctx.fillStyle='rgba(0,230,118,0.3)';ctx.font=`${8*s}px Orbitron,sans-serif`;ctx.textAlign='left';ctx.fillText('▲ FLOOD',pL+4*s,pT+12*s);}
+  if(zeroY<pT+cH-20*s){ctx.fillStyle='rgba(255,82,82,0.3)';ctx.font=`${8*s}px Orbitron,sans-serif`;ctx.textAlign='left';ctx.fillText('▼ EBB',pL+4*s,pT+cH-4*s);}
+  // Day/hour lines
+  if(period==='7d'){
+    const sd=new Date(pts[0].t);sd.setHours(0,0,0,0);
+    for(let i=1;i<=8;i++){const d=new Date(sd.getTime()+i*86400000);if(d.getTime()>=tMin&&d.getTime()<=tMax){const x=tx(d.getTime());ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1*s;ctx.setLineDash([2*s,4*s]);ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+cH);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font=`${8*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText(DS[d.getDay()],x,pT+cH+13*s);}}
+  }else{
+    for(let h=0;h<=24;h+=6){const d=new Date(pts[0].t);d.setHours(h,0,0,0);if(d.getTime()>=tMin&&d.getTime()<=tMax){const x=tx(d.getTime());ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1*s;ctx.setLineDash([2*s,4*s]);ctx.beginPath();ctx.moveTo(x,pT);ctx.lineTo(x,pT+cH);ctx.stroke();ctx.setLineDash([]);let lbl=d.getHours()===0?'12AM':d.getHours()===12?'12PM':d.getHours()<12?d.getHours()+'AM':(d.getHours()-12)+'PM';ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font=`${8*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText(lbl,x,pT+cH+13*s);}}
+  }
+  document.getElementById('flow-xlabels').textContent='';
+  // Fill flood (positive) + ebb (negative) separately
+  // Flood fill
+  ctx.save();
+  const floodGrad=ctx.createLinearGradient(0,pT,0,zeroY);
+  floodGrad.addColorStop(0,'rgba(0,230,118,0.3)');floodGrad.addColorStop(1,'rgba(0,230,118,0.0)');
+  ctx.beginPath();ctx.moveTo(tx(pts[0].t.getTime()),zeroY);
+  for(let i=0;i<pts.length;i++){const x=tx(pts[i].t.getTime()),y=ty(Math.max(0,pts[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(pts[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.max(0,pts[i-1].v)),cpx,y,x,y);}}
+  ctx.lineTo(tx(pts[pts.length-1].t.getTime()),zeroY);ctx.closePath();ctx.fillStyle=floodGrad;ctx.fill();
+  ctx.restore();
+  // Ebb fill
+  ctx.save();
+  const ebbGrad=ctx.createLinearGradient(0,zeroY,0,pT+cH);
+  ebbGrad.addColorStop(0,'rgba(255,82,82,0.0)');ebbGrad.addColorStop(1,'rgba(255,82,82,0.3)');
+  ctx.beginPath();ctx.moveTo(tx(pts[0].t.getTime()),zeroY);
+  for(let i=0;i<pts.length;i++){const x=tx(pts[i].t.getTime()),y=ty(Math.min(0,pts[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(pts[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.min(0,pts[i-1].v)),cpx,y,x,y);}}
+  ctx.lineTo(tx(pts[pts.length-1].t.getTime()),zeroY);ctx.closePath();ctx.fillStyle=ebbGrad;ctx.fill();
+  ctx.restore();
+  // Main line — color by flood/ebb
+  for(let i=1;i<pts.length;i++){
+    const x0=tx(pts[i-1].t.getTime()),y0=ty(pts[i-1].v),x1=tx(pts[i].t.getTime()),y1=ty(pts[i].v);
+    const mid=(pts[i-1].v+pts[i].v)/2;
+    ctx.beginPath();const cpx=(x0+x1)/2;ctx.moveTo(x0,y0);ctx.bezierCurveTo(cpx,y0,cpx,y1,x1,y1);
+    ctx.strokeStyle=mid>=0?'rgba(0,230,118,0.8)':'rgba(255,82,82,0.8)';ctx.lineWidth=2*s;ctx.shadowColor=mid>=0?'#00e676':'#ff5252';ctx.shadowBlur=4*s;ctx.stroke();ctx.shadowBlur=0;
+  }
+  // Zero line on top
+  ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1.5*s;ctx.setLineDash([4*s,4*s]);
+  ctx.beginPath();ctx.moveTo(pL,zeroY);ctx.lineTo(W-pR,zeroY);ctx.stroke();ctx.setLineDash([]);
+  // Now line
+  const now=new Date();
+  if(now.getTime()>=tMin&&now.getTime()<=tMax){
+    const nx=tx(now.getTime());
+    ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1*s;ctx.setLineDash([3*s,3*s]);
+    ctx.beginPath();ctx.moveTo(nx,pT);ctx.lineTo(nx,pT+cH);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(200,232,255,0.6)';ctx.font=`${7*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText('NOW',nx,pT-4*s);
+  }
+}
+
+// ── TOGGLE HANDLERS ────────────────────────────────────────────────
+function setGagePeriod(p){
+  gagePeriod=p;
+  document.getElementById('gage-1d').className='tbtn'+(p==='1d'?' active':'');
+  document.getElementById('gage-7d').className='tbtn'+(p==='7d'?' active':'');
+  drawGageChart(p);
+}
+function setFlowPeriod(p){
+  flowPeriod=p;
+  document.getElementById('flow-1d').className='tbtn'+(p==='1d'?' active':'');
+  document.getElementById('flow-7d').className='tbtn'+(p==='7d'?' active':'');
+  drawFlowChart(p);
 }
 
 // ── FISHING ────────────────────────────────────────────────────────
-function evalFishing(hilo, flowVal) {
-  const now = new Date();
-  const past = hilo.filter(p=>p.date<=now).sort((a,b)=>b.date-a.date);
-  const future = hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date);
-  const last=past[0], next=future[0];
-  const minsTo = next?(next.date-now)/60000:999;
-  const minsSince = last?(now-last.date)/60000:999;
-  const incoming = last?.type==='L' && next?.type==='H';
-  const outgoing = last?.type==='H' && next?.type==='L';
-  const bigRange = last&&next ? Math.abs(next.h-last.h)>2 : false;
-  const flowDir = flowVal !== null ? (flowVal < 0 ? 'ebb' : 'flood') : null;
-
-  let rating='fair', icon='🎣', title='Fair — Slow Day', reason='Mid-tide. Fish deeper structure, anchor channel edges.';
-
-  if (minsTo < 75 && next?.type==='L') {
-    rating='excellent'; icon='🔥'; title='🔥 PRIME — GO NOW';
-    reason=`Slack low in ${Math.round(minsTo)}min. Catfish stacked in deep holes. Soak cut bait on bottom.${flowDir?' Flow currently '+flowDir+'.':''}`;
-  } else if (minsSince < 75 && last?.type==='L') {
-    rating='excellent'; icon='🔥'; title='🔥 PRIME WINDOW';
-    reason=`${Math.round(minsSince)}min past low. Incoming tide starting. Fish channel edges hard.${flowDir?' USGS shows '+flowDir+' flow.':''}`;
-  } else if (incoming && bigRange) {
-    rating='excellent'; icon='🔥'; title='🔥 EXCELLENT — Strong Incoming';
-    reason=`${Math.abs(next.h-last.h).toFixed(1)}ft tidal range incoming. Catfish very active on structure.${flowDir?' USGS: '+flowDir+'.':''}`;
-  } else if (incoming) {
-    rating='good'; icon='✅'; title='✅ Good — Incoming Tide';
-    reason=`Rising toward ${next?.h.toFixed(1)}ft at ${next?fmt12(next.date):'soon'}. Good window on drop-offs and points.`;
-  } else if (outgoing) {
-    rating='good'; icon='✅'; title='✅ Good — Outgoing Tide';
-    reason=`Falling toward low. Drift cut sardine or Gulp on channel bends.${flowDir==='ebb'?' USGS confirms ebb current.':''}`;
-  }
-
-  document.getElementById('ficon').textContent = icon;
-  document.getElementById('ftitle').className = `fish-title ${rating}`;
-  document.getElementById('ftitle').textContent = title;
-  document.getElementById('freason').textContent = reason;
+function evalFishing(hilo,flowVal){
+  const now=new Date(),past=hilo.filter(p=>p.date<=now).sort((a,b)=>b.date-a.date),future=hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date);
+  const last=past[0],next=future[0];
+  const minsTo=next?(next.date-now)/60000:999,minsSince=last?(now-last.date)/60000:999;
+  const incoming=last?.type==='L'&&next?.type==='H',outgoing=last?.type==='H'&&next?.type==='L';
+  const bigRange=last&&next?Math.abs(next.h-last.h)>2:false;
+  const flowDir=flowVal!==null?(flowVal<0?'ebb':'flood'):null;
+  let rating='fair',icon='🎣',title='Fair — Slow Day',reason='Mid-tide. Fish deeper structure, anchor channel edges.';
+  if(minsTo<75&&next?.type==='L'){rating='excellent';icon='🔥';title='🔥 PRIME — GO NOW';reason=`Slack low in ${Math.round(minsTo)}min. Catfish stacked in deep holes. Soak cut bait on bottom.${flowDir?' USGS: '+flowDir+' flow.':''}`;}
+  else if(minsSince<75&&last?.type==='L'){rating='excellent';icon='🔥';title='🔥 PRIME WINDOW';reason=`${Math.round(minsSince)}min past low. Incoming tide starting. Fish channel edges hard.${flowDir?' USGS confirms '+flowDir+'.':''}`;}
+  else if(incoming&&bigRange){rating='excellent';icon='🔥';title='🔥 EXCELLENT — Strong Incoming';reason=`${Math.abs(next.h-last.h).toFixed(1)}ft range incoming. Catfish very active on structure.`;}
+  else if(incoming){rating='good';icon='✅';title='✅ Good — Incoming Tide';reason=`Rising toward ${next?.h.toFixed(1)}ft at ${next?fmt12(next.date):'soon'}. Good window on drop-offs and points.`;}
+  else if(outgoing){rating='good';icon='✅';title='✅ Good — Outgoing Tide';reason=`Falling toward low. Drift cut sardine or Gulp on channel bends.${flowDir==='ebb'?' USGS confirms ebb current.':''}`;}
+  document.getElementById('ficon').textContent=icon;
+  document.getElementById('ftitle').className=`fish-title ${rating}`;
+  document.getElementById('ftitle').textContent=title;
+  document.getElementById('freason').textContent=reason;
 }
 
-// ── WEEKLY STRIP ───────────────────────────────────────────────────
-function renderWeekly(hilo) {
-  const today = ymd(new Date()), byDay = {};
-  hilo.forEach(p => {
-    const k=ymd(p.date);
-    if(!byDay[k]) byDay[k]={hi:[],lo:[]};
-    p.type==='H' ? byDay[k].hi.push(p.h) : byDay[k].lo.push(p.h);
-  });
-  let html='', d=new Date();
-  for (let i=0; i<7; i++) {
-    const k=ymd(d), day=byDay[k]||{hi:[],lo:[]};
-    const hi=day.hi.length?Math.max(...day.hi).toFixed(1):'--';
-    const lo=day.lo.length?Math.min(...day.lo).toFixed(1):'--';
-    html+=`<div class="wday ${k===today?'today':''}"><div class="wdname">${k===today?'TDY':DS[d.getDay()]}</div><div class="wdhi">${hi}</div><div class="wdlo">${lo}</div></div>`;
-    d.setDate(d.getDate()+1);
-  }
-  document.getElementById('wstrip').innerHTML = html;
+// ── WEEKLY ─────────────────────────────────────────────────────────
+function renderWeekly(hilo){
+  const today=ymd(new Date()),byDay={};
+  hilo.forEach(p=>{const k=ymd(p.date);if(!byDay[k])byDay[k]={hi:[],lo:[]};p.type==='H'?byDay[k].hi.push(p.h):byDay[k].lo.push(p.h);});
+  let html='',d=new Date();
+  for(let i=0;i<7;i++){const k=ymd(d),day=byDay[k]||{hi:[],lo:[]};const hi=day.hi.length?Math.max(...day.hi).toFixed(1):'--';const lo=day.lo.length?Math.min(...day.lo).toFixed(1):'--';html+=`<div class="wday ${k===today?'today':''}"><div class="wdname">${k===today?'TDY':DS[d.getDay()]}</div><div class="wdhi">${hi}</div><div class="wdlo">${lo}</div></div>`;d.setDate(d.getDate()+1);}
+  document.getElementById('wstrip').innerHTML=html;
 }
 
-// ── COUNTDOWN REFRESH ──────────────────────────────────────────────
-setInterval(() => {
-  if(upcoming[0]) document.getElementById('pn-cd').textContent = cd(upcoming[0].date);
-  if(upcoming[1]) document.getElementById('pa-cd').textContent = cd(upcoming[1].date);
-}, 30000);
+// ── COUNTDOWN ──────────────────────────────────────────────────────
+setInterval(()=>{if(upcoming[0])document.getElementById('pn-cd').textContent=cd(upcoming[0].date);if(upcoming[1])document.getElementById('pa-cd').textContent=cd(upcoming[1].date);},30000);
 
 // ── MAIN LOAD ──────────────────────────────────────────────────────
-async function loadAll() {
+async function loadAll(){
   setStatus('Fetching live data...');
-  const today = ymd(new Date());
-  const tomorrow = ymd(new Date(Date.now()+86400000));
-  const weekEnd = ymd(new Date(Date.now()+6*86400000));
-
-  try {
-    const [usgsLatest, usgsHist, hiloExt, hiloWeek] = await Promise.all([
-      fetchUSGSLatest(),
-      fetchUSGSHistory7d(),
-      noaaHiLo(today, tomorrow),
-      noaaHiLo(today, weekEnd)
+  const today=ymd(new Date()),tomorrow=ymd(new Date(Date.now()+86400000)),weekEnd=ymd(new Date(Date.now()+6*86400000));
+  try{
+    const[d1,d7,hiloExt,hw]=await Promise.all([
+      fetchUSGS('P1D'),fetchUSGS('P7D'),
+      fetchNoaaHiLo(today,tomorrow),fetchNoaaHiLo(today,weekEnd)
     ]);
-
-    renderUSGS(usgsLatest);
-
-    const hiloToday = hiloExt.filter(p => ymd(p.date) === today);
-    renderPills(hiloToday);
-    renderTable(hiloToday);
-    renderChart(usgsHist, hiloWeek);
-    evalFishing(hiloToday, usgsLatest['00060'] ? parseFloat(usgsLatest['00060'].val) : null);
-    renderWeekly(hiloWeek);
-
-    setStatus(`Live · USGS + NOAA · ${new Date().toLocaleTimeString()}`, 'live');
-  } catch(e) {
-    setStatus(`Error: ${e.message}`, 'err');
-    console.error(e);
-  }
+    hist1d=d1;hist7d=d7;hiloWeek=hw;hiloToday=hiloExt.filter(p=>ymd(p.date)===today);
+    const latest=d7['00060_latest']||d1['00060_latest'];
+    renderStats(d7);
+    renderPills(hiloToday);renderTable(hiloToday);
+    drawGageChart(gagePeriod);drawFlowChart(flowPeriod);
+    evalFishing(hiloToday,latest?latest.v:null);
+    renderWeekly(hw);
+    setStatus(`Live · USGS + NOAA · ${new Date().toLocaleTimeString()}`,'live');
+  }catch(e){setStatus(`Error: ${e.message}`,'err');console.error(e);}
 }
 
-// ── REFRESH SCHEDULE ───────────────────────────────────────────────
-// USGS updates every 15 min — refresh live stats every 15 min
-setInterval(async () => {
-  try {
-    const d = await fetchUSGSLatest();
-    renderUSGS(d);
-    setStatus(`Live · USGS + NOAA · ${new Date().toLocaleTimeString()}`, 'live');
-  } catch(e) { console.warn('Refresh error:', e); }
-}, 15 * 60 * 1000);
-
-// Full reload every 30 min (picks up new chart data)
-setInterval(loadAll, 30 * 60 * 1000);
+// Refresh USGS stats every 15 min
+setInterval(async()=>{
+  try{const d=await fetchUSGS('PT15M');renderStats(d);setStatus(`Live · USGS + NOAA · ${new Date().toLocaleTimeString()}`,'live');}catch(e){console.warn(e);}
+},15*60*1000);
+setInterval(loadAll,30*60*1000);
 
 loadAll();
 </script>
