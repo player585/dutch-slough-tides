@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dutch Slough Tides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060d14; --surface: #0a1520; --surface2: #0d1c2a;
+    --border: rgba(0,180,255,0.15); --cyan: #00b4ff; --cyan-glow: rgba(0,180,255,0.8);
+    --gold: #ffc843; --gold-glow: rgba(255,200,67,0.8); --green: #00e676;
+    --red: #ff5252; --muted: rgba(0,180,255,0.5); --text: #c8e8ff;
+    --font-display: 'Orbitron', sans-serif; --font-mono: 'Share Tech Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; min-height:100%; background:var(--bg); color:var(--text); font-family:var(--font-mono); font-size:14px; overflow-x:hidden; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; }
+  .logo-group { display:flex; align-items:center; gap:10px; }
+  .logo-group svg { width:32px; height:32px; flex-shrink:0; }
+  .site-name { font-family:var(--font-display); font-size:13px; font-weight:700; color:var(--cyan); letter-spacing:2px; text-shadow:0 0 10px var(--cyan-glow); line-height:1.2; }
+  .site-sub { font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+  #clock { font-family:var(--font-display); font-size:12px; color:var(--muted); letter-spacing:1px; text-align:right; }
+  main { padding:12px; display:flex; flex-direction:column; gap:12px; max-width:480px; margin:0 auto; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; position:relative; overflow:hidden; }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--cyan),transparent); opacity:0.4; }
+  .card-title { font-family:var(--font-display); font-size:9px; font-weight:700; color:var(--muted); letter-spacing:3px; text-transform:uppercase; margin-bottom:10px; }
+  #current-level-section { text-align:center; }
+  .level-big { font-family:var(--font-display); font-size:52px; font-weight:900; color:var(--cyan); text-shadow:0 0 20px var(--cyan-glow); line-height:1; letter-spacing:-1px; font-variant-numeric:tabular-nums lining-nums; }
+  .level-unit { font-size:16px; color:var(--muted); margin-left:4px; vertical-align:super; }
+  .level-trend { font-size:11px; margin-top:4px; letter-spacing:1px; min-height:18px; }
+  .trend-rising { color:var(--green); } .trend-falling { color:var(--red); }
+  .tide-pills { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tide-pill { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; }
+  .pill-label { font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+  .pill-type { font-family:var(--font-display); font-size:11px; font-weight:700; }
+  .pill-type.high { color:var(--gold); text-shadow:0 0 8px var(--gold-glow); }
+  .pill-type.low { color:#64b5f6; }
+  .pill-time { font-family:var(--font-display); font-size:18px; font-weight:700; color:var(--text); }
+  .pill-height { font-size:12px; color:var(--muted); }
+  .pill-countdown { font-size:10px; color:var(--green); letter-spacing:1px; }
+  .tides-table { width:100%; border-collapse:collapse; }
+  .tides-table th { font-size:9px; color:var(--muted); letter-spacing:2px; text-align:left; padding:4px 8px; text-transform:uppercase; border-bottom:1px solid var(--border); }
+  .tides-table td { padding:9px 8px; font-size:13px; border-bottom:1px solid rgba(0,180,255,0.06); }
+  .tides-table tr:last-child td { border-bottom:none; }
+  .tides-table tr.past td { opacity:0.4; }
+  .tides-table tr.next-row td { background:rgba(0,180,255,0.06); }
+  .tide-type-high { color:var(--gold); font-family:var(--font-display); font-size:10px; font-weight:700; letter-spacing:1px; }
+  .tide-type-low { color:#64b5f6; font-family:var(--font-display); font-size:10px; font-weight:700; letter-spacing:1px; }
+  .tide-height { font-family:var(--font-display); font-weight:700; color:var(--text); }
+  .now-badge { display:inline-block; background:var(--green); color:#000; font-size:8px; padding:1px 5px; border-radius:3px; margin-left:5px; font-family:var(--font-display); letter-spacing:1px; vertical-align:middle; }
+  #tide-chart-canvas { width:100%; height:160px; display:block; }
+  .chart-labels { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); margin-top:4px; letter-spacing:1px; }
+  #weekly-strip { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .day-card { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:6px 4px; text-align:center; display:flex; flex-direction:column; gap:2px; }
+  .day-card.today { border-color:var(--cyan); }
+  .day-name { font-size:8px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .day-high { font-size:10px; color:var(--gold); font-family:var(--font-display); font-weight:700; }
+  .day-low { font-size:10px; color:#64b5f6; font-family:var(--font-display); }
+  #status-bar { text-align:center; font-size:10px; color:var(--muted); letter-spacing:1px; padding:4px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); display:inline-block; flex-shrink:0; }
+  .status-dot.live { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse-dot 2s infinite; }
+  .status-dot.error { background:var(--red); }
+  @keyframes pulse-dot { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .fishing-badge { display:flex; align-items:center; gap:10px; }
+  .fish-icon { font-size:28px; }
+  .fish-info { flex:1; }
+  .fish-title { font-family:var(--font-display); font-size:11px; font-weight:700; margin-bottom:3px; }
+  .fish-title.excellent { color:var(--green); }
+  .fish-title.good { color:var(--gold); }
+  .fish-title.fair { color:#ff9800; }
+  .fish-reason { font-size:10px; color:var(--muted); line-height:1.5; }
+  .skeleton { background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:4px; }
+  @keyframes shimmer { 0%{background-position:-200% 0}100%{background-position:200% 0} }
+  #debug-panel { font-size:10px; color:var(--muted); padding:8px; background:var(--surface2); border-radius:6px; word-break:break-all; line-height:1.6; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-group">
+    <svg viewBox="0 0 32 32" fill="none" aria-label="Tides">
+      <path d="M4 22 Q8 10 12 18 Q16 26 20 14 Q24 4 28 16" stroke="#00b4ff" stroke-width="2.5" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 4px #00b4ff)"/>
+      <line x1="4" y1="26" x2="28" y2="26" stroke="rgba(0,180,255,0.3)" stroke-width="1"/>
+    </svg>
+    <div>
+      <div class="site-name">DUTCH SLOUGH</div>
+      <div class="site-sub">Station 9415053 · Bethel Island CA</div>
+    </div>
+  </div>
+  <div id="clock">--:-- --</div>
+</header>
+
+<main>
+  <div class="card" id="current-level-section">
+    <div class="card-title">Current Water Level</div>
+    <div class="level-big" id="level-display">--.-<span class="level-unit">ft</span></div>
+    <div class="level-trend" id="level-trend">Connecting to NOAA...</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Next Tides</div>
+    <div class="tide-pills">
+      <div class="tide-pill">
+        <div class="pill-label">Next</div>
+        <div class="pill-type" id="pn-type">--</div>
+        <div class="pill-time" id="pn-time">--:--</div>
+        <div class="pill-height" id="pn-height">-- ft</div>
+        <div class="pill-countdown" id="pn-cd">--</div>
+      </div>
+      <div class="tide-pill">
+        <div class="pill-label">After That</div>
+        <div class="pill-type" id="pa-type">--</div>
+        <div class="pill-time" id="pa-time">--:--</div>
+        <div class="pill-height" id="pa-height">-- ft</div>
+        <div class="pill-countdown" id="pa-cd">--</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Today's Tide Curve</div>
+    <canvas id="tide-chart-canvas" aria-label="Tide curve chart"></canvas>
+    <div class="chart-labels"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Today's Schedule</div>
+    <table class="tides-table">
+      <thead><tr><th>Time</th><th>Type</th><th>Height</th></tr></thead>
+      <tbody id="today-tbody"><tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted)">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Delta Catfish Conditions</div>
+    <div class="fishing-badge">
+      <div class="fish-icon" id="fish-icon">🎣</div>
+      <div class="fish-info">
+        <div class="fish-title" id="fish-title">Evaluating...</div>
+        <div class="fish-reason" id="fish-reason">Waiting for tide data...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">7-Day Outlook</div>
+    <div id="weekly-strip">
+      <div class="day-card skeleton" style="height:58px"></div>
+      <div class="day-card skeleton" style="height:58px"></div>
+      <div class="day-card skeleton" style="height:58px"></div>
+      <div class="day-card skeleton" style="height:58px"></div>
+      <div class="day-card skeleton" style="height:58px"></div>
+      <div class="day-card skeleton" style="height:58px"></div>
+      <div class="day-card skeleton" style="height:58px"></div>
+    </div>
+  </div>
+
+  <div id="status-bar">
+    <span class="status-dot" id="sdot"></span>
+    <span id="stext">Initializing...</span>
+  </div>
+  <div id="debug-panel"></div>
+</main>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────
+const STATION = '9415053';
+// Try direct first, then proxies
+const PROXIES = [
+  url => url,  // direct
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+];
+let workingProxyIdx = 0;
+
+const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ── STATE ───────────────────────────────────────────────────────────
+let prevLevel = null, currentLevel = null;
+let upcomingTides = [];
+
+// ── CLOCK ────────────────────────────────────────────────────────────
+function updateClock() {
+  const n = new Date();
+  let h = n.getHours(), m = n.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  document.getElementById('clock').textContent =
+    `${h}:${String(m).padStart(2,'0')} ${ap}  ${MONTHS_SHORT[n.getMonth()]} ${n.getDate()}`;
+}
+updateClock(); setInterval(updateClock, 1000);
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function yyyymmdd(d) {
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseT(s) {
+  const [dp, tp] = s.split(' ');
+  const [y,mo,d] = dp.split('-').map(Number);
+  const [h,mi] = tp.split(':').map(Number);
+  return new Date(y, mo-1, d, h, mi);
+}
+function fmt12(d) {
+  let h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2,'0')} ${ap}`;
+}
+function countdown(future) {
+  const diff = future - Date.now();
+  if (diff < 0) return 'passed';
+  const min = Math.floor(diff / 60000);
+  const hr = Math.floor(min / 60), mn = min % 60;
+  return hr > 0 ? `in ${hr}h ${mn}m` : `in ${mn}m`;
+}
+function setStatus(msg, state='') {
+  document.getElementById('stext').textContent = msg;
+  const d = document.getElementById('sdot');
+  d.className = 'status-dot' + (state ? ' '+state : '');
+}
+function dbg(msg) {
+  const p = document.getElementById('debug-panel');
+  p.style.display = 'block';
+  p.textContent = msg;
+}
+
+// ── FETCH WITH PROXY FALLBACK ────────────────────────────────────────
+async function noaaFetch(params) {
+  const base = new URL('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter');
+  Object.entries({ ...params, station: STATION, units: 'english', time_zone: 'lst_ldt',
+    datum: 'MLLW', application: 'dutch_slough_v2', format: 'json' })
+    .forEach(([k,v]) => base.searchParams.set(k, v));
+  const directUrl = base.toString();
+
+  // Try each proxy in order, remember the last working one
+  for (let i = workingProxyIdx; i < PROXIES.length; i++) {
+    const url = PROXIES[i](directUrl);
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      workingProxyIdx = i; // remember this works
+      return data;
+    } catch(e) {
+      console.warn(`Proxy ${i} failed:`, e.message);
+      if (i === PROXIES.length - 1) throw new Error(`All proxies failed. Last error: ${e.message}`);
+    }
+  }
+}
+
+// ── DATA FETCHERS ─────────────────────────────────────────────────────
+async function fetchLevel() {
+  const d = await noaaFetch({ product: 'water_level', date: 'latest' });
+  return parseFloat(d.data[0].v);
+}
+async function fetchHiLo(begin, end) {
+  const d = await noaaFetch({ product: 'predictions', begin_date: begin, end_date: end, interval: 'hilo' });
+  return (d.predictions || []).map(p => ({ ...p, date: parseT(p.t), h: parseFloat(p.v) }));
+}
+async function fetchHourly(date) {
+  const d = await noaaFetch({ product: 'predictions', begin_date: date, end_date: date, interval: '60' });
+  return (d.predictions || []).map(p => ({ ...p, h: parseFloat(p.v) }));
+}
+
+// ── RENDER LEVEL ─────────────────────────────────────────────────────
+function renderLevel(v) {
+  prevLevel = currentLevel;
+  currentLevel = v;
+  const el = document.getElementById('level-display');
+  el.innerHTML = `${v.toFixed(2)}<span class="level-unit">ft</span>`;
+  const hue = v > 2.5 ? 'var(--gold)' : v > 1.0 ? 'var(--cyan)' : '#64b5f6';
+  el.style.color = hue; el.style.textShadow = `0 0 20px ${hue}`;
+  const tr = document.getElementById('level-trend');
+  if (prevLevel !== null) {
+    const diff = v - prevLevel;
+    if (Math.abs(diff) < 0.01) tr.innerHTML = '<span style="color:var(--muted)">▬ Holding</span>';
+    else if (diff > 0) tr.innerHTML = `<span class="trend-rising">▲ Rising +${Math.abs(diff).toFixed(2)} ft since last reading</span>`;
+    else tr.innerHTML = `<span class="trend-falling">▼ Falling ${diff.toFixed(2)} ft since last reading</span>`;
+  } else {
+    tr.innerHTML = `<span style="color:var(--muted)">NOAA Station 9415053 · Live</span>`;
+  }
+}
+
+// ── RENDER PILLS ──────────────────────────────────────────────────────
+function renderPills(hilo) {
+  const now = new Date();
+  upcomingTides = hilo.filter(p => p.date > now).sort((a,b) => a.date - b.date);
+  const set = (prefix, p) => {
+    if (!p) return;
+    const hi = p.type === 'H';
+    document.getElementById(`p${prefix}-type`).textContent = hi ? 'HIGH' : 'LOW';
+    document.getElementById(`p${prefix}-type`).className = `pill-type ${hi ? 'high' : 'low'}`;
+    document.getElementById(`p${prefix}-time`).textContent = fmt12(p.date);
+    document.getElementById(`p${prefix}-height`).textContent = `${p.h.toFixed(2)} ft`;
+    document.getElementById(`p${prefix}-cd`).textContent = countdown(p.date);
+  };
+  set('n', upcomingTides[0]); set('a', upcomingTides[1]);
+}
+
+// ── RENDER TABLE ──────────────────────────────────────────────────────
+function renderTable(hilo) {
+  const now = new Date();
+  const upcoming = hilo.filter(p => p.date > now).sort((a,b) => a.date - b.date);
+  const nextDate = upcoming[0]?.date.getTime();
+  const html = hilo.map(p => {
+    const past = p.date < now;
+    const isNext = p.date.getTime() === nextDate;
+    return `<tr class="${past ? 'past' : isNext ? 'next-row' : ''}">
+      <td>${fmt12(p.date)}${isNext ? '<span class="now-badge">NEXT</span>' : ''}</td>
+      <td><span class="${p.type==='H'?'tide-type-high':'tide-type-low'}">${p.type==='H'?'HIGH':'LOW'}</span></td>
+      <td class="tide-height">${p.h.toFixed(2)} ft</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('today-tbody').innerHTML = html || '<tr><td colspan="3" style="color:var(--muted);text-align:center">No data</td></tr>';
+}
+
+// ── RENDER CHART ──────────────────────────────────────────────────────
+function renderChart(hourly, hilo) {
+  const c = document.getElementById('tide-chart-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  c.width = c.offsetWidth * dpr; c.height = 160 * dpr;
+  c.style.height = '160px';
+  const ctx = c.getContext('2d');
+  const s = dpr, W = c.width, H = c.height;
+  const pL=38*s, pR=10*s, pT=14*s, pB=22*s;
+  const cW=W-pL-pR, cH=H-pT-pB;
+  const heights = hourly.map(p=>p.h);
+  if (!heights.length) return;
+  const minH = Math.min(...heights) - 0.2, maxH = Math.max(...heights) + 0.3, rng = maxH - minH;
+  const tx = i => pL + (i/(heights.length-1))*cW;
+  const ty = v => pT + (1-(v-minH)/rng)*cH;
+
+  ctx.fillStyle = '#060d14'; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  [0.5,1,1.5,2,2.5,3,3.5].filter(v=>v>=minH&&v<=maxH).forEach(v=>{
+    const y=ty(v);
+    ctx.strokeStyle='rgba(0,180,255,0.08)'; ctx.lineWidth=1*s; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(W-pR,y); ctx.stroke();
+    ctx.fillStyle='rgba(0,180,255,0.4)'; ctx.font=`${9*s}px Share Tech Mono,monospace`; ctx.textAlign='right';
+    ctx.fillText(v.toFixed(1), pL-4*s, y+3*s);
+  });
+
+  // Fill
+  const grad = ctx.createLinearGradient(0,pT,0,pT+cH);
+  grad.addColorStop(0,'rgba(0,180,255,0.25)'); grad.addColorStop(1,'rgba(0,180,255,0)');
+  ctx.beginPath(); ctx.moveTo(tx(0),ty(heights[0]));
+  for(let i=1;i<heights.length;i++){const cpx=(tx(i-1)+tx(i))/2;ctx.bezierCurveTo(cpx,ty(heights[i-1]),cpx,ty(heights[i]),tx(i),ty(heights[i]));}
+  ctx.lineTo(tx(heights.length-1),pT+cH); ctx.lineTo(tx(0),pT+cH); ctx.closePath();
+  ctx.fillStyle=grad; ctx.fill();
+
+  // Line
+  ctx.beginPath(); ctx.moveTo(tx(0),ty(heights[0]));
+  for(let i=1;i<heights.length;i++){const cpx=(tx(i-1)+tx(i))/2;ctx.bezierCurveTo(cpx,ty(heights[i-1]),cpx,ty(heights[i]),tx(i),ty(heights[i]));}
+  ctx.strokeStyle='#00b4ff'; ctx.lineWidth=2*s; ctx.shadowColor='#00b4ff'; ctx.shadowBlur=6*s; ctx.stroke(); ctx.shadowBlur=0;
+
+  // H/L markers
+  hilo.forEach(p=>{
+    const mins=p.date.getHours()*60+p.date.getMinutes();
+    const xi=Math.round((mins/1439)*(heights.length-1));
+    const x=tx(Math.min(xi,heights.length-1)), y=ty(p.h);
+    const col=p.type==='H'?'#ffc843':'#64b5f6';
+    ctx.beginPath(); ctx.arc(x,y,5*s,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=8*s; ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle='#060d14'; ctx.lineWidth=1.5*s; ctx.stroke();
+    ctx.fillStyle=col; ctx.font=`bold ${8*s}px Orbitron,sans-serif`; ctx.textAlign='center';
+    ctx.fillText(p.h.toFixed(1), x, p.type==='H' ? y-10*s : y+17*s);
+  });
+
+  // Now line + dot
+  const nowMins=new Date().getHours()*60+new Date().getMinutes();
+  const nowX=tx(Math.round((nowMins/1439)*(heights.length-1)));
+  ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1*s; ctx.setLineDash([3*s,3*s]);
+  ctx.beginPath(); ctx.moveTo(nowX,pT); ctx.lineTo(nowX,pT+cH); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(200,232,255,0.9)'; ctx.font=`${7*s}px Share Tech Mono,monospace`; ctx.textAlign='center';
+  ctx.fillText('NOW', nowX, pT-3*s);
+  if(currentLevel!==null){
+    const cy=ty(currentLevel);
+    ctx.beginPath(); ctx.arc(nowX,cy,6*s,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=10*s; ctx.fill(); ctx.shadowBlur=0;
+  }
+}
+
+// ── FISHING ───────────────────────────────────────────────────────────
+function evalFishing(hilo) {
+  const now = new Date();
+  const past = hilo.filter(p=>p.date<=now).sort((a,b)=>b.date-a.date);
+  const future = hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date);
+  const last = past[0], next = future[0];
+  let rating='fair', icon='🎣', reason='Mid-tide. Fish deeper structure, anchor channel edges.';
+  const minsToNext = next ? (next.date-now)/60000 : 999;
+  const minsSinceLast = last ? (now-last.date)/60000 : 999;
+  const incoming = last?.type==='L' && next?.type==='H';
+  const outgoing = last?.type==='H' && next?.type==='L';
+  const bigRange = next && hilo.length > 1 && Math.abs(next.h - (last?.h||0)) > 2;
+
+  if (minsToNext < 60 && next?.type==='L') { rating='excellent'; icon='🔥'; reason=`Near slack low in ${Math.round(minsToNext)}min — catfish stacked in holes. Soak cut bait on bottom NOW.`; }
+  else if (minsSinceLast < 60 && last?.type==='L') { rating='excellent'; icon='🔥'; reason=`Just past low slack ${Math.round(minsSinceLast)}min ago. Incoming tide starting — fish channel edges & points.`; }
+  else if (incoming && bigRange) { rating='excellent'; icon='🔥'; reason=`Strong incoming tide (+${Math.abs(next.h-(last?.h||0)).toFixed(1)}ft range). Catfish very active on structure. Prime window.`; }
+  else if (incoming) { rating='good'; icon='✅'; reason=`Incoming tide toward ${next?.h.toFixed(1)}ft at ${next?fmt12(next.date):'soon'}. Good feeding window. Try points and drop-offs.`; }
+  else if (outgoing) { rating='good'; icon='✅'; reason=`Outgoing tide. Drift cut sardine or Gulp on channel bends. Fish will be active until near low.`; }
+
+  document.getElementById('fish-icon').textContent = icon;
+  document.getElementById('fish-title').className = `fish-title ${rating}`;
+  const labels = {excellent:'🔥 PRIME WINDOW — GO NOW', good:'✅ Good Conditions', fair:'🎣 Fair — Worth a Try'};
+  document.getElementById('fish-title').textContent = labels[rating] || 'Fair';
+  document.getElementById('fish-reason').textContent = reason;
+}
+
+// ── WEEKLY STRIP ──────────────────────────────────────────────────────
+function renderWeekly(predictions) {
+  const today = yyyymmdd(new Date());
+  const byDay = {};
+  predictions.forEach(p=>{
+    const k=yyyymmdd(p.date);
+    if(!byDay[k]) byDay[k]={highs:[],lows:[]};
+    if(p.type==='H') byDay[k].highs.push(p.h); else byDay[k].lows.push(p.h);
+  });
+  let html='', d=new Date();
+  for(let i=0;i<7;i++){
+    const k=yyyymmdd(d), day=byDay[k]||{highs:[],lows:[]};
+    const hi=day.highs.length?Math.max(...day.highs).toFixed(1):'--';
+    const lo=day.lows.length?Math.min(...day.lows).toFixed(1):'--';
+    html+=`<div class="day-card ${k===today?'today':''}">
+      <div class="day-name">${k===today?'TDY':DAYS_SHORT[d.getDay()]}</div>
+      <div class="day-high">${hi}</div>
+      <div class="day-low">${lo}</div>
+    </div>`;
+    d.setDate(d.getDate()+1);
+  }
+  document.getElementById('weekly-strip').innerHTML=html;
+}
+
+// ── COUNTDOWN TIMER ───────────────────────────────────────────────────
+setInterval(()=>{
+  if(upcomingTides[0]) document.getElementById('pn-cd').textContent=countdown(upcomingTides[0].date);
+  if(upcomingTides[1]) document.getElementById('pa-cd').textContent=countdown(upcomingTides[1].date);
+}, 30000);
+
+// ── MAIN LOAD ─────────────────────────────────────────────────────────
+async function loadAll() {
+  setStatus('Connecting to NOAA CO-OPS…');
+  const today = yyyymmdd(new Date());
+  const weekEnd = yyyymmdd(new Date(Date.now() + 6*86400000));
+
+  try {
+    setStatus('Fetching predictions…');
+    const [hiloToday, hourly, hiloWeek] = await Promise.all([
+      fetchHiLo(today, today),
+      fetchHourly(today),
+      fetchHiLo(today, weekEnd)
+    ]);
+    renderPills(hiloToday);
+    renderTable(hiloToday);
+    renderChart(hourly, hiloToday);
+    evalFishing(hiloToday);
+    renderWeekly(hiloWeek);
+
+    // Now get live level (may not be available at all stations)
+    try {
+      const lv = await fetchLevel();
+      renderLevel(lv);
+    } catch(e) {
+      // Dutch Slough may not have real-time water level sensor; use predicted
+      if (hiloToday.length) {
+        // interpolate predicted level from hourly
+        const now = new Date();
+        const nowMins = now.getHours()*60+now.getMinutes();
+        const closest = hourly.reduce((best,p)=>{
+          const pt=parseT(p.t); const pm=pt.getHours()*60+pt.getMinutes();
+          return Math.abs(pm-nowMins)<Math.abs(best.mins-nowMins)?{h:p.h,mins:pm}:best;
+        },{h:0,mins:9999});
+        if(closest.h) { currentLevel=closest.h; renderLevel(closest.h); document.getElementById('level-trend').innerHTML='<span style="color:var(--muted)">Predicted level (no live sensor)</span>'; }
+      }
+      console.warn('Water level sensor:', e.message);
+    }
+
+    const proxyNames = ['Direct','corsproxy.io','allorigins.win'];
+    setStatus(`Live · ${proxyNames[workingProxyIdx]} · ${new Date().toLocaleTimeString()}`, 'live');
+  } catch(e) {
+    setStatus(`Error: ${e.message}`, 'error');
+    dbg(`Debug: ${e.message}\nStation: ${STATION}\nProxy tried: ${workingProxyIdx}`);
+    document.getElementById('level-trend').innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
+  }
+}
+
+// ── REFRESH ───────────────────────────────────────────────────────────
+async function refreshLevel() {
+  try {
+    const lv = await fetchLevel();
+    renderLevel(lv);
+    setStatus(`Live · ${new Date().toLocaleTimeString()}`, 'live');
+  } catch(e) {}
+}
+setInterval(refreshLevel, 6*60*1000);
+setInterval(loadAll, 30*60*1000);
+loadAll();
+</script>
+</body>
+</html>
