@@ -660,8 +660,8 @@ function drawChart(canvasId,allPts,st,opts){
   if(!allPts.length){ctx.fillStyle='rgba(0,180,255,0.3)';ctx.font=`${10*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText('No local data',W/2,H/2);return;}
   const allTMin=allPts[0].t.getTime();
   const allTMaxRaw=allPts[allPts.length-1].t.getTime();
-  // tPad extends the right edge so NOW isn't stuck at the far right
-  const allTMax=opts.tPad?allTMaxRaw+(allTMaxRaw-allTMin)*opts.tPad:allTMaxRaw;
+  // tPad extends right edge (1D); tMax pins exact right edge; default = last data point
+  const allTMax=opts.tMax?opts.tMax:opts.tPad?allTMaxRaw+(allTMaxRaw-allTMin)*opts.tPad:allTMaxRaw;
   const{start:tMin,end:tMax}=getView(st,allTMin,allTMax);
   const vis=allPts.filter(p=>p.t.getTime()>=tMin-300000&&p.t.getTime()<=tMax+300000);
   if(!vis.length) return;
@@ -703,13 +703,8 @@ function drawChart(canvasId,allPts,st,opts){
     });
     visible.forEach(p=>{
       const x=tx(p.date.getTime()); if(isNaN(x)||x<pL||x>pL+cW) return;
-      // Find nearest vis point for y position
-      // For future hi/lo points, use the NOAA predicted height directly (p.h)
-      // For past points, snap to nearest live USGS measurement for accuracy
       let y;
       if(p.date.getTime()>Date.now()){
-        // fcastOffset = USGS_lastLive - Jersey_Island_interpolated_at_lastLive
-        // This is the exact same offset used in hiloToCurve → dots align with curve
         y=ty((p.h||0)+(opts.fcastOffset||0));
       } else {
         let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
@@ -718,27 +713,22 @@ function drawChart(canvasId,allPts,st,opts){
       const isH=p.type==='H', col=isH?'#ffc843':'#64b5f6';
       const isFuture=p.date.getTime()>Date.now();
       const dotR=isFuture?3*s:4*s;
-      // Draw dot
       ctx.beginPath();ctx.arc(x,y,dotR,0,Math.PI*2);
       ctx.fillStyle=isFuture?'rgba('+( isH?'255,200,67':'100,181,246')+',0.6)':col;
       ctx.shadowColor=col;ctx.shadowBlur=isFuture?3*s:6*s;ctx.fill();ctx.shadowBlur=0;
       if(isFuture){ctx.beginPath();ctx.arc(x,y,dotR,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=1*s;ctx.stroke();}
-      // Time label
       const h=p.date.getHours(), m=p.date.getMinutes();
       const ampm=h>=12?'p':'a', h12=h%12||12;
       const tLbl=`${h12}:${String(m).padStart(2,'0')}${ampm}`;
-      const hLbl=`${isH?'H':'L'} ${(p.h||cl.v||0).toFixed(1)}`;
+      const hLbl=`${isH?'H':'L'} ${(p.h||cl?.v||0).toFixed(1)}`;
       ctx.font=`${6.5*s}px Orbitron`;ctx.textAlign='center';
-      const yOff=isH?-12*s:12*s;  // H labels above dot, L labels below
-      // Background pill for readability
+      const yOff=isH?-12*s:12*s;
       const lw=Math.max(ctx.measureText(tLbl).width,ctx.measureText(hLbl).width)+4*s;
       const lh=9*s;
       ctx.fillStyle='rgba(10,20,35,0.72)';
       ctx.beginPath();ctx.roundRect(x-lw/2,y+yOff-(isH?lh*2+2*s:0),lw,lh*2+3*s,2*s);ctx.fill();
-      // Height value line
       ctx.fillStyle=isFuture?col+'aa':col;
       ctx.fillText(hLbl,x,y+yOff+(isH?-lh-1*s:lh));
-      // Time line
       ctx.fillStyle=isFuture?'rgba(255,255,255,0.45)':'rgba(255,255,255,0.75)';
       ctx.fillText(tLbl,x,y+yOff+(isH?-1*s:lh*2+1*s));
     });
@@ -782,11 +772,6 @@ function drawGageChart(period){
   if(!combined.length) return;
   const allV=combined.map(p=>p.v);
   const vMin=Math.min(...allV)-0.3, vMax=Math.max(...allV)+0.4;
-  // All hi/lo dots from Jersey Island (9415053) — consistent source for past & future
-  // The forecast LINE uses Port Chicago + dynamic offset to match Jersey Island datum
-  // Dynamic offset = lastLive.v - nearest_PortChicago.v ≈ -1.75ft (known datum diff)
-  // Compute Jersey Island → USGS offset for hi/lo dot positioning
-  // Same computation used inside hiloToCurve
   let dotOffset=0;
   if(live.length&&hiloWeek.length){
     const lastLive=live[live.length-1];
@@ -804,13 +789,14 @@ function drawGageChart(period){
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
     tPad:period==='1d'?0.25:0,
+    tMax:period!=='1d'?Date.now()+3*3600000:null,
     hiloPoints:hiloWeek,
     fcastOffset:dotOffset,
     sunFn:calcSun,
     nowVal:latestGage,
     valLabel:v=>`${v.toFixed(2)} ft`,
     drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s)=>{
-      const live2=live; // draw all history as solid line
+      const live2=live;
       // 48H NOAA forecast overlay — always shown on all periods
       if(scaledFcast.length>1){
         const fp=scaledFcast;
@@ -842,18 +828,15 @@ function drawGageChart(period){
 // Scale is auto-calibrated: liveAbsMax / max(|dh/dt|) so amplitude matches history
 function noaaToFlow(pred, liveAbsMax){
   if(pred.length<2) return [];
-  // Step 1: compute raw derivatives (ft/min at each 6-min step)
   const raw=pred.map((p,i)=>{
     if(i===0) return 0;
     const dt=(p.t-pred[i-1].t)/60000||6;
     return (p.v-pred[i-1].v)/dt;
   });
-  // Step 2: smooth with 5-point moving average to match natural flow curves
   const smoothed=raw.map((v,i)=>{
     const win=raw.slice(Math.max(0,i-2),Math.min(raw.length,i+3));
     return win.reduce((a,b)=>a+b,0)/win.length;
   });
-  // Step 3: auto-scale so peak forecast amplitude = peak live amplitude
   const maxDeriv=Math.max(...smoothed.map(Math.abs))||1;
   const scale=liveAbsMax/maxDeriv;
   return pred.map((p,i)=>({t:p.t, v:smoothed[i]*scale}));
@@ -880,6 +863,7 @@ function drawFlowChart(period){
     yStep:absMax>3000?1000:absMax>1000?500:250,
     showZero:true,
     tPad:period==='1d'?0.25:0,
+    tMax:period!=='1d'?Date.now()+3*3600000:null,
     sunFn:calcSun,
     yFmt:v=>{const a=Math.abs(v);return a>=1000?`${(v/1000).toFixed(0)}k`:String(Math.round(v));},
     nowVal:latestFlow,
@@ -949,8 +933,8 @@ function calcSun(date){
   const sinD=Math.sin(lam*Math.PI/180)*Math.sin(23.4397*Math.PI/180);
   const cosH=-( Math.sin(-0.833*Math.PI/180)+Math.sin(LAT*Math.PI/180)*sinD)/
               (Math.cos(LAT*Math.PI/180)*Math.sqrt(1-sinD*sinD));
-  if(cosH>1) return null; // polar night
-  if(cosH<-1) return null; // midnight sun
+  if(cosH>1) return null;
+  if(cosH<-1) return null;
   const H=Math.acos(cosH)*180/Math.PI;
   const Jrise=Jtrans-H/360;
   const Jset=Jtrans+H/360;
@@ -967,24 +951,15 @@ function fmtSun(d){
 // ── MOON PHASE + RISE/SET (Meeus algorithm, Bethel Island CA) ──────────────────
 function calcMoonPhase(date){
   const JD=(date.getTime()/86400000)+2440587.5;
-  // Days since J2000.0
   const d=JD-2451545.0;
-  // Mean anomaly of Sun
   const Ms=((357.529+0.98560028*d)%360)*Math.PI/180;
-  // Moon mean longitude
   const Lm=((218.316+13.176396*d)%360)*Math.PI/180;
-  // Moon mean anomaly
   const Mm=((134.963+13.064993*d)%360)*Math.PI/180;
-  // Moon argument of latitude
   const F=((93.272+13.229350*d)%360)*Math.PI/180;
-  // Ecliptic longitude
   const lon=218.316+13.176396*d+6.289*Math.sin(Mm)-1.274*Math.sin(2*Lm-Mm)
     +0.658*Math.sin(2*Lm)-0.214*Math.sin(2*Mm)-0.110*Math.sin(Ms);
-  // Phase angle (0=new, 0.5=full, 1=new)
   const phase=((lon-((280.460+0.9856474*d)%360)+360)%360)/360;
-  // Illumination %
   const illum=Math.round((1-Math.cos(phase*2*Math.PI))/2*100);
-  // Phase name
   let name,emoji;
   if(phase<0.0625){name='New Moon';emoji='🌑';}
   else if(phase<0.1875){name='Waxing Crescent';emoji='🌒';}
@@ -999,41 +974,31 @@ function calcMoonPhase(date){
 }
 
 function calcMoonRiseSet(date){
-  // Simplified moon rise/set for lat/lon using hour angle method
-  // Accurate to ±10 minutes for mid-latitudes
   const LAT_R=LAT*Math.PI/180;
   const JD=(date.getTime()/86400000)+2440587.5;
   const d=JD-2451545.0;
-  // Moon ecliptic coords
   const Lm=(218.316+13.176396*d)*Math.PI/180;
   const Mm=(134.963+13.064993*d)*Math.PI/180;
   const F=(93.272+13.229350*d)*Math.PI/180;
   const lon=(218.316+13.176396*d+6.289*Math.sin(Mm)-1.274*Math.sin(2*Lm-Mm)
     +0.658*Math.sin(2*Lm)-0.214*Math.sin(2*Mm))*Math.PI/180;
   const lat=(5.128*Math.sin(F))*Math.PI/180;
-  // Convert to equatorial
   const eps=23.4397*Math.PI/180;
   const sinDec=Math.sin(lat)*Math.cos(eps)+Math.cos(lat)*Math.sin(eps)*Math.sin(lon);
   const dec=Math.asin(Math.max(-1,Math.min(1,sinDec)));
-  // Hour angle for horizon (altitude = -0.833° for atmospheric refraction)
   const cosH=(Math.sin(-0.833*Math.PI/180)-Math.sin(LAT_R)*sinDec)
              /(Math.cos(LAT_R)*Math.cos(dec));
-  if(Math.abs(cosH)>1) return null; // circumpolar or never rises
+  if(Math.abs(cosH)>1) return null;
   const H=Math.acos(cosH)*180/Math.PI;
-  // Sidereal time at midnight for this date
   const T0=date.getUTCHours()+date.getUTCMinutes()/60;
-  // Moon's right ascension
   const cosRA=Math.cos(lon)*Math.cos(lat);
   const sinRA=Math.sin(lon)*Math.cos(eps)*Math.cos(lat)-Math.sin(lat)*Math.sin(eps);
   const RA=(Math.atan2(sinRA,cosRA)*180/Math.PI+360)%360;
-  // Local sidereal time at transit
   const GMST=(6.697375+0.0657098242*d)%24;
   const LMST=(GMST+LON/15+24)%24;
   const transit=(RA/15-LMST+24)%24;
-  // Rise and set times (UTC hours)
   const riseUTC=(transit-H/15+24)%24;
   const setUTC=(transit+H/15)%24;
-  // Convert to local Date objects for today
   const base=new Date(date); base.setUTCHours(0,0,0,0);
   const rise=new Date(base.getTime()+riseUTC*3600000);
   const set=new Date(base.getTime()+setUTC*3600000);
@@ -1054,7 +1019,6 @@ function renderMoonInfo(){
 }
 
 function renderSunTimes(){
-  // Pass noon UTC of today so algorithm returns correct local-time rise/set
   const noon=new Date(); noon.setUTCHours(12,0,0,0);
   const sun=calcSun(noon);
   if(!sun) return;
@@ -1067,7 +1031,7 @@ async function loadAll(){
   setStatus('Fetching USGS local + Port Chicago wx...');
   const today=ymd(new Date()), tomorrow=ymd(new Date(Date.now()+86400000));
   const future7=ymd(new Date(Date.now()+7*86400000));
-  const future2=ymd(new Date(Date.now()+2*86400000)); // 48-hour forecast window
+  const future2=ymd(new Date(Date.now()+2*86400000));
   try{
     const [g1d,g7d,f1d,f7d,hiloExt,hw,predFuture,wx]=await Promise.all([
       fetchUSGS('00065','P1D'),
@@ -1076,7 +1040,7 @@ async function loadAll(){
       fetchUSGS('00060','P7D'),
       fetchNoaaHiLo(today,tomorrow),
       fetchNoaaHiLo(today,future7),
-      fetchNoaa6min(today,future2),   // 48-hour forecast only
+      fetchNoaa6min(today,future2),
       fetchPortChicagoWx()
     ]);
     gageHist1d=g1d; gageHist7d=g7d;
@@ -1084,7 +1048,7 @@ async function loadAll(){
     noaaPredFuture=predFuture;
     hiloWeek=hw;
     // FIX 1: use full today+tomorrow window so pills/table/fishing always have upcoming data
-    hiloToday=hiloExt; // today+tomorrow window — pills/table/fishing always have upcoming data
+    hiloToday=hiloExt;
     renderGageStat(g7d);
     renderFlowStat(f7d);
     renderWx(wx);
