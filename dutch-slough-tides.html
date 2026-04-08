@@ -184,13 +184,13 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="toggle-group">
         <button class="tbtn" id="gage-1d" onclick="setGagePeriod('1d')">1D</button>
         <button class="tbtn active" id="gage-7d" onclick="setGagePeriod('7d')">7D↩</button>
-        <button class="tbtn" id="gage-14d" onclick="setGagePeriod('14d')">±7D</button>
+        <button class="tbtn" id="gage-14d" onclick="setGagePeriod('14d')">+48H</button>
       </div>
     </div>
     <div class="chart-wrap" id="gage-wrap">
       <canvas id="gage-canvas" height="160" aria-label="Gage height chart"></canvas>
     </div>
-    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · r1 scroll wheel works</div>
+    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · +48H shows 7D back + 48hr NOAA forecast</div>
     <div class="chart-legend">
       <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div><span>USGS Measured</span></div>
       <div class="leg-item"><div class="leg-dash"></div><span>NOAA Predicted Forecast</span></div>
@@ -207,13 +207,13 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="toggle-group">
         <button class="tbtn" id="flow-1d" onclick="setFlowPeriod('1d')">1D</button>
         <button class="tbtn active" id="flow-7d" onclick="setFlowPeriod('7d')">7D↩</button>
-        <button class="tbtn" id="flow-14d" onclick="setFlowPeriod('14d')">±7D</button>
+        <button class="tbtn" id="flow-14d" onclick="setFlowPeriod('14d')">+48H</button>
       </div>
     </div>
     <div class="chart-wrap" id="flow-wrap">
       <canvas id="flow-canvas" height="160" aria-label="Streamflow chart"></canvas>
     </div>
-    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · ±7D adds 7-day forecast</div>
+    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · +48H = 7D past + 48hr forecast</div>
     <div class="chart-legend">
       <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div><span>Flood (Inflow)</span></div>
       <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div><span>Ebb (Outflow)</span></div>
@@ -653,7 +653,7 @@ function drawGageChart(period){
           ctx.beginPath();ctx.setLineDash([5*s,4*s]);ctx.moveTo(tx(fp[0].t.getTime()),ty(fp[0].v));
           for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(fp[i-1].v),cpx,ty(fp[i].v),tx(fp[i].t.getTime()),ty(fp[i].v));}
           ctx.strokeStyle='rgba(0,180,255,0.5)';ctx.lineWidth=1.5*s;ctx.shadowColor='rgba(0,180,255,0.3)';ctx.shadowBlur=4*s;ctx.stroke();ctx.shadowBlur=0;ctx.setLineDash([]);
-          const mp=fp[Math.floor(fp.length*0.55)];ctx.fillStyle='rgba(0,180,255,0.4)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ NOAA FORECAST',tx(mp.t.getTime()),pT+10*s);
+          const mp=fp[Math.floor(fp.length*0.55)];ctx.fillStyle='rgba(0,180,255,0.4)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ 48H FORECAST',tx(mp.t.getTime()),pT+10*s);
         }
       }
       // Live USGS solid cyan line
@@ -728,7 +728,7 @@ function drawFlowChart(period){
       if(fcast.length){
         seg(fcast.filter(p=>p.t.getTime()>=nowMs-300000), true);
         const mp=fcast[Math.floor(fcast.length*.5)];
-        ctx.fillStyle='rgba(255,255,255,0.22)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ FORECAST',tx(mp.t.getTime()),pT+10*s);
+        ctx.fillStyle='rgba(255,255,255,0.22)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ 48H',tx(mp.t.getTime()),pT+10*s);
       }
       if(zy>pT+18*s){ctx.fillStyle='rgba(0,230,118,0.28)';ctx.font=`${8*s}px Orbitron`;ctx.textAlign='left';ctx.fillText('▲ FLOOD',pL+4*s,pT+12*s);}
       if(zy<pT+cH-18*s){ctx.fillStyle='rgba(255,82,82,0.28)';ctx.font=`${8*s}px Orbitron`;ctx.textAlign='left';ctx.fillText('▼ EBB',pL+4*s,pT+cH-4*s);}
@@ -750,6 +750,7 @@ async function loadAll(){
   setStatus('Fetching USGS local + Port Chicago wx...');
   const today=ymd(new Date()), tomorrow=ymd(new Date(Date.now()+86400000));
   const future7=ymd(new Date(Date.now()+7*86400000));
+  const future2=ymd(new Date(Date.now()+2*86400000)); // 48-hour forecast window
   try{
     const [g1d,g7d,f1d,f7d,hiloExt,hw,predFuture,wx]=await Promise.all([
       fetchUSGS('00065','P1D'),
@@ -758,7 +759,7 @@ async function loadAll(){
       fetchUSGS('00060','P7D'),
       fetchNoaaHiLo(today,tomorrow),
       fetchNoaaHiLo(today,future7),
-      fetchNoaa6min(today,future7),
+      fetchNoaa6min(today,future2),   // 48-hour forecast only
       fetchPortChicagoWx()
     ]);
     gageHist1d=g1d; gageHist7d=g7d;
