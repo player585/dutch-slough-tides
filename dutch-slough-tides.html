@@ -1090,6 +1090,16 @@ function renderSunTimes(){
   el.innerHTML=`<span class="sun-icon">☀</span><span class="sun-rise">Rise ${fmtSun(sun.rise)}</span><span class="sun-div">·</span><span class="sun-set">Set ${fmtSun(sun.set)}</span><span class="sun-div">·</span><span style="color:var(--gold);opacity:0.7;font-size:10px">${daylight}</span>`;
 }
 
+// ── SAFE FETCH WRAPPERS (resilient — one failure won't crash everything) ──
+async function safeUSGS(param, period){
+  try{ return await fetchUSGS(param, period); }
+  catch(e){ console.warn('USGS fetch failed:',param,period,e.message); return []; }
+}
+async function safeNoaa(fn, ...args){
+  try{ return await fn(...args); }
+  catch(e){ console.warn('NOAA fetch failed:',e.message); return []; }
+}
+
 async function loadAll(){
   setStatus('Fetching USGS local + Port Chicago wx...');
   const today=ymd(new Date()), tomorrow=ymd(new Date(Date.now()+86400000));
@@ -1097,14 +1107,14 @@ async function loadAll(){
   const future2=ymd(new Date(Date.now()+2*86400000)); // 48-hour forecast window
   try{
     const [g1d,g7d,f1d,f7d,hiloExt,hw,predFuture,wx]=await Promise.all([
-      fetchUSGS('00065','P1D'),
-      fetchUSGS('00065','P7D'),
-      fetchUSGS('00060','P1D'),
-      fetchUSGS('00060','P7D'),
-      fetchNoaaHiLo(today,tomorrow),
-      fetchNoaaHiLo(today,future7),
-      fetchNoaa6min(today,future2),   // 48-hour forecast only
-      fetchPortChicagoWx()
+      safeUSGS('00065','P1D'),
+      safeUSGS('00065','P7D'),
+      safeUSGS('00060','P1D'),
+      safeUSGS('00060','P7D'),
+      safeNoaa(fetchNoaaHiLo,today,tomorrow),
+      safeNoaa(fetchNoaaHiLo,today,future7),
+      safeNoaa(fetchNoaa6min,today,future2),
+      fetchPortChicagoWx().catch(()=>({}))
     ]);
     gageHist1d=g1d; gageHist7d=g7d;
     flowHist1d=f1d; flowHist7d=f7d;
@@ -1123,7 +1133,8 @@ async function loadAll(){
     startAnim();
     renderSunTimes();
     renderMoonInfo();
-    setStatus(`Live · USGS 11313433 + Port Chicago 9415144 · ${new Date().toLocaleTimeString()}`, 'live');
+    const partial=[g7d,f7d,hiloExt,hw].some(a=>!a.length);
+    setStatus(`${partial?'Partial data':'Live'} · USGS 11313433 + Port Chicago 9415144 · ${new Date().toLocaleTimeString()}`, partial?'':'live');
   }catch(e){
     setStatus(`Error: ${e.message}`, 'err');
     console.error(e);
@@ -1134,9 +1145,9 @@ async function loadAll(){
 setInterval(async()=>{
   try{
     const[g1d,g7d,f1d,f7d,wx]=await Promise.all([
-      fetchUSGS('00065','P1D'),fetchUSGS('00065','P7D'),
-      fetchUSGS('00060','P1D'),fetchUSGS('00060','P7D'),
-      fetchPortChicagoWx()
+      safeUSGS('00065','P1D'),safeUSGS('00065','P7D'),
+      safeUSGS('00060','P1D'),safeUSGS('00060','P7D'),
+      fetchPortChicagoWx().catch(()=>({}))
     ]);
     gageHist1d=g1d;gageHist7d=g7d;flowHist1d=f1d;flowHist7d=f7d;
     renderGageStat(g7d);renderFlowStat(f7d);renderWx(wx);
