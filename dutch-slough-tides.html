@@ -120,6 +120,12 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 .sv-wtemp{font-size:20px;color:var(--green)}
 .sv-airtemp{font-size:20px;color:var(--gold)}
 .sv-wind{font-size:14px;color:var(--muted)}
+/* SUN/MOON BOXES */
+.astro-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.astro-icon{font-size:20px;line-height:1;filter:drop-shadow(0 0 4px currentColor)}
+.astro-name{font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.astro-val{font-family:var(--fd);font-size:13px;font-weight:700;letter-spacing:0.5px}
+.astro-sub{font-size:9px;letter-spacing:0.5px}
 </style>
 </head>
 <body>
@@ -176,6 +182,20 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
         <div class="stat-val sv-wind" id="sv-wind">-- mph</div>
         <div class="stat-unit" id="sv-winddir">-- · Port Chicago</div>
         <div class="stat-trend" id="sv-gust">&nbsp;</div>
+      </div>
+    </div>
+    <div class="astro-row">
+      <div class="stat-box" style="align-items:center">
+        <div class="astro-icon" style="color:var(--gold)">☀</div>
+        <div class="astro-name" style="color:var(--gold)">Sun</div>
+        <div class="astro-val" id="sun-rise-box" style="color:#ffda6a">↑ --:--</div>
+        <div class="astro-sub" id="sun-set-box" style="color:#ff9a3c">↓ --:--</div>
+      </div>
+      <div class="stat-box" style="align-items:center">
+        <div class="astro-icon" id="moon-icon-box">🌙</div>
+        <div class="astro-name" id="moon-phase-box" style="color:#c8c0ff">--</div>
+        <div class="astro-val" id="moon-illum-box" style="color:rgba(200,192,255,0.8)">--%</div>
+        <div class="astro-sub"><span id="moon-rise-box" style="color:#a0a8ff">↑ --:--</span> · <span id="moon-set-box" style="color:#7878cc">↓ --:--</span></div>
       </div>
     </div>
     <div class="src-badge" id="usgs-updated">Connecting to USGS 11313433 + NOAA 9415144...</div>
@@ -1035,23 +1055,33 @@ function renderMoonInfo(){
   const now=new Date();
   const moon=calcMoonPhase(now);
   const moonRS=calcMoonRiseSet(now);
+  // Header
   const el=document.getElementById('moon-info');
-  if(!el) return;
-  let riseSetHtml='';
-  if(moonRS){
-    riseSetHtml=`<span class="moon-rise">Rise ${fmtSun(moonRS.rise)}</span><span class="sun-div">·</span><span class="moon-set">Set ${fmtSun(moonRS.set)}</span>`;
+  if(el){
+    let riseSetHtml='';
+    if(moonRS) riseSetHtml=`<span class="moon-rise">Rise ${fmtSun(moonRS.rise)}</span><span class="sun-div">·</span><span class="moon-set">Set ${fmtSun(moonRS.set)}</span>`;
+    el.innerHTML=`<span class="moon-icon">${moon.emoji}</span><span class="moon-phase">${moon.name}</span><span class="moon-illum">${moon.illum}%</span>${riseSetHtml?'<span class="sun-div">·</span>'+riseSetHtml:''}`;
   }
-  el.innerHTML=`<span class="moon-icon">${moon.emoji}</span><span class="moon-phase">${moon.name}</span><span class="moon-illum">${moon.illum}%</span>${riseSetHtml?'<span class="sun-div">·</span>'+riseSetHtml:''}`;
+  // Live conditions box
+  const ib=document.getElementById('moon-icon-box');  if(ib) ib.textContent=moon.emoji;
+  const pb=document.getElementById('moon-phase-box'); if(pb) pb.textContent=moon.name;
+  const ilb=document.getElementById('moon-illum-box');if(ilb) ilb.textContent=`${moon.illum}%`;
+  if(moonRS){
+    const mrb=document.getElementById('moon-rise-box');if(mrb) mrb.textContent=`↑ ${fmtSun(moonRS.rise)}`;
+    const msb=document.getElementById('moon-set-box'); if(msb) msb.textContent=`↓ ${fmtSun(moonRS.set)}`;
+  }
 }
 
 function renderSunTimes(){
-  // Pass noon UTC of today so algorithm returns correct local-time rise/set
   const noon=new Date(); noon.setUTCHours(12,0,0,0);
   const sun=calcSun(noon);
   if(!sun) return;
+  // Header
   const el=document.getElementById('sun-times');
-  if(!el) return;
-  el.innerHTML=`<span class="sun-icon">☀</span><span class="sun-rise">Rise ${fmtSun(sun.rise)}</span><span class="sun-div">·</span><span class="sun-set">Set ${fmtSun(sun.set)}</span>`;
+  if(el) el.innerHTML=`<span class="sun-icon">☀</span><span class="sun-rise">Rise ${fmtSun(sun.rise)}</span><span class="sun-div">·</span><span class="sun-set">Set ${fmtSun(sun.set)}</span>`;
+  // Live conditions box
+  const rb=document.getElementById('sun-rise-box'); if(rb) rb.textContent=`↑ ${fmtSun(sun.rise)}`;
+  const sb=document.getElementById('sun-set-box');  if(sb) sb.textContent=`↓ ${fmtSun(sun.set)}`;
 }
 
 // ── RESILIENT WRAPPERS ─────────────────────────────────────────────
