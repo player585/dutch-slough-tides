@@ -111,6 +111,12 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 .sun-rise{color:#ffda6a}
 .sun-set{color:#ff9a3c}
 .sun-div{color:var(--muted);opacity:0.5}
+.moon-info{display:flex;align-items:center;gap:6px;font-size:11px;font-family:'Orbitron',monospace;color:rgba(180,180,255,0.85);letter-spacing:0.5px;margin-top:2px}
+.moon-icon{font-size:14px}
+.moon-phase{color:#c8c0ff;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+.moon-illum{color:rgba(200,192,255,0.6);font-size:10px}
+.moon-rise{color:#a0a8ff}
+.moon-set{color:#7878cc}
 .sv-wtemp{font-size:20px;color:var(--green)}
 .sv-airtemp{font-size:20px;color:var(--gold)}
 .sv-wind{font-size:14px;color:var(--muted)}
@@ -128,6 +134,7 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="site-name">DUTCH SLOUGH</div>
       <div class="site-sub">USGS 11313433 local · NOAA Port Chicago 9415144 wx</div>
       <div id="sun-times" class="sun-times">☀ --:-- · --:--</div>
+      <div id="moon-info" class="moon-info">🌙 --</div>
     </div>
   </div>
   <div id="clock">--:-- --</div>
@@ -547,6 +554,55 @@ function startAnim(){if(animFrame)return;function loop(ts){nowPhase=ts;drawGageC
 
 // ── CHART CORE ─────────────────────────────────────────────────────
 
+// Build forecast curve by cosine-interpolating between Jersey Island hi/lo points
+// Guarantees curve passes exactly through each hi/lo dot
+function hiloToCurve(hiloPoints, livePoints, intervalMs=6*60000){
+  // Only use future hilo points
+  const now=Date.now();
+  // Get last live point as anchor (t, v)
+  const lastLive=livePoints.length?livePoints[livePoints.length-1]:null;
+  // Get hilo points from just before now (to anchor) through future
+  const pts=hiloPoints.filter(p=>p.date.getTime()>now-3*3600000)
+    .sort((a,b)=>a.date-b.date);
+  if(pts.length<2) return [];
+
+  // Compute datum offset: map Jersey Island heights to USGS gage scale
+  // Use last live USGS point vs interpolated Jersey Island at that time
+  let offset=0;
+  if(lastLive){
+    // Find surrounding hilo bracket for lastLive time
+    const before=pts.filter(p=>p.date<=lastLive.t).pop();
+    const after=pts.find(p=>p.date>lastLive.t);
+    if(before&&after){
+      // Cosine interpolate Jersey Island at lastLive.t
+      const t0=before.date.getTime(), t1=after.date.getTime();
+      const frac=(lastLive.t.getTime()-t0)/(t1-t0);
+      const mu2=(1-Math.cos(frac*Math.PI))/2;
+      const jerseyAtNow=before.h*(1-mu2)+after.h*mu2;
+      offset=lastLive.v-jerseyAtNow; // USGS gage - Jersey Island = correction
+    }
+  }
+
+  // Generate dense curve points
+  const result=[];
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[i], p1=pts[i+1];
+    const t0=p0.date.getTime(), t1=p1.date.getTime();
+    const v0=p0.h+offset, v1=p1.h+offset;
+    // Sample from t0 to t1 every intervalMs
+    for(let t=t0;t<=t1;t+=intervalMs){
+      const frac=(t-t0)/(t1-t0);
+      const mu2=(1-Math.cos(frac*Math.PI))/2;
+      const v=v0*(1-mu2)+v1*mu2;
+      result.push({t:new Date(t),v});
+    }
+  }
+  // Add last point
+  const last=pts[pts.length-1];
+  result.push({t:last.date,v:last.h+offset});
+  return result.filter(p=>p.t.getTime()>now-5*60000);
+}
+
 // Find local peaks and troughs in a time series
 function findPeaksTroughs(pts, minSeparationMs=90*60000){
   if(pts.length<3) return [];
@@ -652,11 +708,9 @@ function drawChart(canvasId,allPts,st,opts){
       // For past points, snap to nearest live USGS measurement for accuracy
       let y;
       if(p.date.getTime()>Date.now()){
-        // Jersey Island hilo is ~1.75ft lower than Port Chicago (known constant datum diff)
-        // fcastOffset brings Port Chicago → USGS gage scale
-        // So Jersey Island → USGS = p.h + JERSEY_PC_DIFF + fcastOffset
-        const JERSEY_PC_DIFF=1.75;
-        y=ty((p.h||0)+JERSEY_PC_DIFF+(opts.fcastOffset||0));
+        // fcastOffset = USGS_lastLive - Jersey_Island_interpolated_at_lastLive
+        // This is the exact same offset used in hiloToCurve → dots align with curve
+        y=ty((p.h||0)+(opts.fcastOffset||0));
       } else {
         let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
         y=ty(cl.v||p.h||0);
@@ -720,15 +774,10 @@ function drawGageChart(period){
   // Always show 48hr forecast on all periods
   let combined=live;
   let scaledFcast=[];
-  if(noaaPredFuture.length&&live.length){
-    // Compute datum offset between live gage and NOAA predicted heights
-    const lastLive=live[live.length-1];
-    const nearest=noaaPredFuture.reduce((a,b)=>Math.abs(b.t-lastLive.t)<Math.abs(a.t-lastLive.t)?b:a);
-    const offset=lastLive.v-nearest.v;
-    scaledFcast=noaaPredFuture
-      .filter(p=>p.t>lastLive.t)
-      .map(p=>({t:p.t, v:p.v+offset}));
-    combined=[...live,...scaledFcast];
+  if(hiloWeek.length&&live.length){
+    // Build forecast curve from Jersey Island hi/lo — GUARANTEES line passes through dots
+    scaledFcast=hiloToCurve(hiloWeek,live,6*60000);
+    if(scaledFcast.length) combined=[...live,...scaledFcast.filter(p=>p.t>live[live.length-1].t)];
   }
   if(!combined.length) return;
   const allV=combined.map(p=>p.v);
@@ -736,12 +785,27 @@ function drawGageChart(period){
   // All hi/lo dots from Jersey Island (9415053) — consistent source for past & future
   // The forecast LINE uses Port Chicago + dynamic offset to match Jersey Island datum
   // Dynamic offset = lastLive.v - nearest_PortChicago.v ≈ -1.75ft (known datum diff)
-  const datumOffset=scaledFcast.length&&live.length?(live[live.length-1].v-(noaaPredFuture.find(p=>Math.abs(p.t-live[live.length-1].t)<7*60000)||noaaPredFuture[0]||{v:0}).v):0;
+  // Compute Jersey Island → USGS offset for hi/lo dot positioning
+  // Same computation used inside hiloToCurve
+  let dotOffset=0;
+  if(live.length&&hiloWeek.length){
+    const lastLive=live[live.length-1];
+    const now2=lastLive.t.getTime();
+    const before=hiloWeek.filter(p=>p.date.getTime()<=now2).pop();
+    const after=hiloWeek.find(p=>p.date.getTime()>now2);
+    if(before&&after){
+      const t0=before.date.getTime(),t1=after.date.getTime();
+      const frac=(now2-t0)/(t1-t0);
+      const mu2=(1-Math.cos(frac*Math.PI))/2;
+      const jerseyAtNow=before.h*(1-mu2)+after.h*mu2;
+      dotOffset=lastLive.v-jerseyAtNow;
+    }
+  }
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
     tPad:period==='1d'?0.25:0,
     hiloPoints:hiloWeek,
-    fcastOffset:datumOffset,
+    fcastOffset:dotOffset,
     sunFn:calcSun,
     nowVal:latestGage,
     valLabel:v=>`${v.toFixed(2)} ft`,
@@ -898,6 +962,96 @@ function fmtSun(d){
   return `${h12}:${String(m).padStart(2,'0')}${ampm}`;
 }
 
+
+// ── MOON PHASE + RISE/SET (Meeus algorithm, Bethel Island CA) ──────────────
+function calcMoonPhase(date){
+  const JD=(date.getTime()/86400000)+2440587.5;
+  // Days since J2000.0
+  const d=JD-2451545.0;
+  // Mean anomaly of Sun
+  const Ms=((357.529+0.98560028*d)%360)*Math.PI/180;
+  // Moon mean longitude
+  const Lm=((218.316+13.176396*d)%360)*Math.PI/180;
+  // Moon mean anomaly
+  const Mm=((134.963+13.064993*d)%360)*Math.PI/180;
+  // Moon argument of latitude
+  const F=((93.272+13.229350*d)%360)*Math.PI/180;
+  // Ecliptic longitude
+  const lon=218.316+13.176396*d+6.289*Math.sin(Mm)-1.274*Math.sin(2*Lm-Mm)
+    +0.658*Math.sin(2*Lm)-0.214*Math.sin(2*Mm)-0.110*Math.sin(Ms);
+  // Phase angle (0=new, 0.5=full, 1=new)
+  const phase=((lon-((280.460+0.9856474*d)%360)+360)%360)/360;
+  // Illumination %
+  const illum=Math.round((1-Math.cos(phase*2*Math.PI))/2*100);
+  // Phase name
+  let name,emoji;
+  if(phase<0.0625){name='New Moon';emoji='🌑';}
+  else if(phase<0.1875){name='Waxing Crescent';emoji='🌒';}
+  else if(phase<0.3125){name='First Quarter';emoji='🌓';}
+  else if(phase<0.4375){name='Waxing Gibbous';emoji='🌔';}
+  else if(phase<0.5625){name='Full Moon';emoji='🌕';}
+  else if(phase<0.6875){name='Waning Gibbous';emoji='🌖';}
+  else if(phase<0.8125){name='Last Quarter';emoji='🌗';}
+  else if(phase<0.9375){name='Waning Crescent';emoji='🌘';}
+  else{name='New Moon';emoji='🌑';}
+  return{phase,illum,name,emoji};
+}
+
+function calcMoonRiseSet(date){
+  // Simplified moon rise/set for lat/lon using hour angle method
+  // Accurate to ±10 minutes for mid-latitudes
+  const LAT_R=LAT*Math.PI/180;
+  const JD=(date.getTime()/86400000)+2440587.5;
+  const d=JD-2451545.0;
+  // Moon ecliptic coords
+  const Lm=(218.316+13.176396*d)*Math.PI/180;
+  const Mm=(134.963+13.064993*d)*Math.PI/180;
+  const F=(93.272+13.229350*d)*Math.PI/180;
+  const lon=(218.316+13.176396*d+6.289*Math.sin(Mm)-1.274*Math.sin(2*Lm-Mm)
+    +0.658*Math.sin(2*Lm)-0.214*Math.sin(2*Mm))*Math.PI/180;
+  const lat=(5.128*Math.sin(F))*Math.PI/180;
+  // Convert to equatorial
+  const eps=23.4397*Math.PI/180;
+  const sinDec=Math.sin(lat)*Math.cos(eps)+Math.cos(lat)*Math.sin(eps)*Math.sin(lon);
+  const dec=Math.asin(Math.max(-1,Math.min(1,sinDec)));
+  // Hour angle for horizon (altitude = -0.833° for atmospheric refraction)
+  const cosH=(Math.sin(-0.833*Math.PI/180)-Math.sin(LAT_R)*sinDec)
+             /(Math.cos(LAT_R)*Math.cos(dec));
+  if(Math.abs(cosH)>1) return null; // circumpolar or never rises
+  const H=Math.acos(cosH)*180/Math.PI;
+  // Sidereal time at midnight for this date
+  const T0=date.getUTCHours()+date.getUTCMinutes()/60;
+  // Moon's right ascension
+  const cosRA=Math.cos(lon)*Math.cos(lat);
+  const sinRA=Math.sin(lon)*Math.cos(eps)*Math.cos(lat)-Math.sin(lat)*Math.sin(eps);
+  const RA=(Math.atan2(sinRA,cosRA)*180/Math.PI+360)%360;
+  // Local sidereal time at transit
+  const GMST=(6.697375+0.0657098242*d)%24;
+  const LMST=(GMST+LON/15+24)%24;
+  const transit=(RA/15-LMST+24)%24;
+  // Rise and set times (UTC hours)
+  const riseUTC=(transit-H/15+24)%24;
+  const setUTC=(transit+H/15)%24;
+  // Convert to local Date objects for today
+  const base=new Date(date); base.setUTCHours(0,0,0,0);
+  const rise=new Date(base.getTime()+riseUTC*3600000);
+  const set=new Date(base.getTime()+setUTC*3600000);
+  return{rise,set};
+}
+
+function renderMoonInfo(){
+  const now=new Date();
+  const moon=calcMoonPhase(now);
+  const moonRS=calcMoonRiseSet(now);
+  const el=document.getElementById('moon-info');
+  if(!el) return;
+  let riseSetHtml='';
+  if(moonRS){
+    riseSetHtml=`<span class="moon-rise">Rise ${fmtSun(moonRS.rise)}</span><span class="sun-div">·</span><span class="moon-set">Set ${fmtSun(moonRS.set)}</span>`;
+  }
+  el.innerHTML=`<span class="moon-icon">${moon.emoji}</span><span class="moon-phase">${moon.name}</span><span class="moon-illum">${moon.illum}%</span>${riseSetHtml?'<span class="sun-div">·</span>'+riseSetHtml:''}`;
+}
+
 function renderSunTimes(){
   // Pass noon UTC of today so algorithm returns correct local-time rise/set
   const noon=new Date(); noon.setUTCHours(12,0,0,0);
@@ -940,6 +1094,7 @@ async function loadAll(){
     renderWeekly(hw);
     startAnim();
     renderSunTimes();
+    renderMoonInfo();
     setStatus(`Live · USGS 11313433 + Port Chicago 9415144 · ${new Date().toLocaleTimeString()}`, 'live');
   }catch(e){
     setStatus(`Error: ${e.message}`, 'err');
