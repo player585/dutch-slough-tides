@@ -267,7 +267,8 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────────
 const USGS_SITE = '11313433';          // Dutch Slough Nr Oakley CA — only local sensor
-const NOAA_PRED = '9415053';           // NOAA Jersey Island — tidal predictions
+const NOAA_PRED = '9415053';           // NOAA Jersey Island — hilo predictions (closest)
+const NOAA_PRED_6MIN = '9415144';       // NOAA Port Chicago — 6-min predictions (Jersey Island doesn't support 6-min)
 const NOAA_API  = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
 const USGS_IV   = 'https://waterservices.usgs.gov/nwis/iv/';
 const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -367,7 +368,7 @@ async function fetchNoaaHiLo(begin,end){
 // ── NOAA 6-MIN PREDICTIONS ─────────────────────────────────────────
 async function fetchNoaa6min(begin,end){
   const u=new URL(NOAA_API);
-  Object.entries({station:NOAA_PRED,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'6',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
+  Object.entries({station:NOAA_PRED_6MIN,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'6',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
   const r=await fetch(u); const d=await r.json();
   if(d.error) return [];
   return (d.predictions||[]).map(p=>({t:parseNoaaT(p.t), v:parseFloat(p.v)}));
