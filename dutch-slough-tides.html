@@ -183,14 +183,13 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="chart-title">Gage Height · USGS local</div>
       <div class="toggle-group">
         <button class="tbtn" id="gage-1d" onclick="setGagePeriod('1d')">1D</button>
-        <button class="tbtn active" id="gage-7d" onclick="setGagePeriod('7d')">7D↩</button>
-        <button class="tbtn" id="gage-14d" onclick="setGagePeriod('14d')">+48H</button>
+        <button class="tbtn active" id="gage-7d" onclick="setGagePeriod('7d')">7D</button>
       </div>
     </div>
     <div class="chart-wrap" id="gage-wrap">
       <canvas id="gage-canvas" height="160" aria-label="Gage height chart"></canvas>
     </div>
-    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · +48H shows 7D back + 48hr NOAA forecast</div>
+    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · 48hr forecast always shown ahead of NOW</div>
     <div class="chart-legend">
       <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div><span>USGS Measured</span></div>
       <div class="leg-item"><div class="leg-dash"></div><span>NOAA Predicted Forecast</span></div>
@@ -206,14 +205,13 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="chart-title">Streamflow · USGS local</div>
       <div class="toggle-group">
         <button class="tbtn" id="flow-1d" onclick="setFlowPeriod('1d')">1D</button>
-        <button class="tbtn active" id="flow-7d" onclick="setFlowPeriod('7d')">7D↩</button>
-        <button class="tbtn" id="flow-14d" onclick="setFlowPeriod('14d')">+48H</button>
+        <button class="tbtn active" id="flow-7d" onclick="setFlowPeriod('7d')">7D</button>
       </div>
     </div>
     <div class="chart-wrap" id="flow-wrap">
       <canvas id="flow-canvas" height="160" aria-label="Streamflow chart"></canvas>
     </div>
-    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · +48H = 7D past + 48hr forecast</div>
+    <div class="zoom-hint">🖱 scroll/pinch zoom · drag pan · 48hr forecast always shown ahead of NOW</div>
     <div class="chart-legend">
       <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div><span>Flood (Inflow)</span></div>
       <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div><span>Ebb (Outflow)</span></div>
@@ -621,19 +619,18 @@ function drawChart(canvasId,allPts,st,opts){
 // ── GAGE HEIGHT CHART ──────────────────────────────────────────────
 function drawGageChart(period){
   const live=period==='1d'?gageHist1d:gageHist7d;
-  const fcast=period==='14d'?noaaPredFuture:[];
-  // For ±7D: combine live gage + NOAA predicted heights scaled to match gage datum offset
+  // Always show 48hr forecast on all periods
   let combined=live;
-  if(period==='14d'&&fcast.length){
-    // Compute datum offset: last live gage vs last NOAA pred at same approximate time
-    let offset=0;
-    if(live.length&&fcast.length){
-      const lastLive=live[live.length-1];
-      const nearest=fcast.reduce((a,b)=>Math.abs(b.t-lastLive.t)<Math.abs(a.t-lastLive.t)?b:a);
-      offset=lastLive.v-nearest.v;
-    }
-    const scaledFcast=fcast.map(p=>({t:p.t, v:p.v+offset}));
-    combined=[...live,...scaledFcast.filter(p=>p.t>live[live.length-1].t)];
+  let scaledFcast=[];
+  if(noaaPredFuture.length&&live.length){
+    // Compute datum offset between live gage and NOAA predicted heights
+    const lastLive=live[live.length-1];
+    const nearest=noaaPredFuture.reduce((a,b)=>Math.abs(b.t-lastLive.t)<Math.abs(a.t-lastLive.t)?b:a);
+    const offset=lastLive.v-nearest.v;
+    scaledFcast=noaaPredFuture
+      .filter(p=>p.t>lastLive.t)
+      .map(p=>({t:p.t, v:p.v+offset}));
+    combined=[...live,...scaledFcast];
   }
   if(!combined.length) return;
   const allV=combined.map(p=>p.v);
@@ -646,20 +643,17 @@ function drawGageChart(period){
     valLabel:v=>`${v.toFixed(2)} ft`,
     drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s)=>{
       const live2=live.filter(p=>p.t.getTime()<=combined[combined.length-1].t.getTime()+60000);
-      // NOAA forecast overlay
-      if(period==='14d'&&noaaPredFuture.length){
-        const offset2=live.length&&noaaPredFuture.length?(()=>{const ll=live[live.length-1];const nr=noaaPredFuture.reduce((a,b)=>Math.abs(b.t-ll.t)<Math.abs(a.t-ll.t)?b:a);return ll.v-nr.v;})():0;
-        const fp=noaaPredFuture.filter(p=>p.t>live[live.length-1].t).map(p=>({t:p.t,v:p.v+offset2}));
-        if(fp.length>1){
-          const fg=ctx.createLinearGradient(0,pT,0,pT+cH);fg.addColorStop(0,'rgba(0,180,255,0.08)');fg.addColorStop(1,'rgba(0,180,255,0)');
-          ctx.beginPath();ctx.moveTo(tx(fp[0].t.getTime()),ty(fp[0].v));
-          for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(fp[i-1].v),cpx,ty(fp[i].v),tx(fp[i].t.getTime()),ty(fp[i].v));}
-          ctx.lineTo(tx(fp[fp.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(fp[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=fg;ctx.fill();
-          ctx.beginPath();ctx.setLineDash([5*s,4*s]);ctx.moveTo(tx(fp[0].t.getTime()),ty(fp[0].v));
-          for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(fp[i-1].v),cpx,ty(fp[i].v),tx(fp[i].t.getTime()),ty(fp[i].v));}
-          ctx.strokeStyle='rgba(0,180,255,0.5)';ctx.lineWidth=1.5*s;ctx.shadowColor='rgba(0,180,255,0.3)';ctx.shadowBlur=4*s;ctx.stroke();ctx.shadowBlur=0;ctx.setLineDash([]);
-          const mp=fp[Math.floor(fp.length*0.55)];ctx.fillStyle='rgba(0,180,255,0.4)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ 48H FORECAST',tx(mp.t.getTime()),pT+10*s);
-        }
+      // 48H NOAA forecast overlay — always shown on all periods
+      if(scaledFcast.length>1){
+        const fp=scaledFcast;
+        const fg=ctx.createLinearGradient(0,pT,0,pT+cH);fg.addColorStop(0,'rgba(0,180,255,0.12)');fg.addColorStop(1,'rgba(0,180,255,0)');
+        ctx.beginPath();ctx.moveTo(tx(fp[0].t.getTime()),ty(fp[0].v));
+        for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(fp[i-1].v),cpx,ty(fp[i].v),tx(fp[i].t.getTime()),ty(fp[i].v));}
+        ctx.lineTo(tx(fp[fp.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(fp[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=fg;ctx.fill();
+        ctx.beginPath();ctx.setLineDash([8*s,3*s]);ctx.moveTo(tx(fp[0].t.getTime()),ty(fp[0].v));
+        for(let i=1;i<fp.length;i++){const cpx=(tx(fp[i-1].t.getTime())+tx(fp[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(fp[i-1].v),cpx,ty(fp[i].v),tx(fp[i].t.getTime()),ty(fp[i].v));}
+        ctx.strokeStyle='rgba(0,180,255,0.65)';ctx.lineWidth=2*s;ctx.shadowColor='rgba(0,180,255,0.4)';ctx.shadowBlur=5*s;ctx.stroke();ctx.shadowBlur=0;ctx.setLineDash([]);
+        const mp=fp[Math.floor(fp.length*0.5)];ctx.fillStyle='rgba(0,180,255,0.45)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ 48H FORECAST',tx(mp.t.getTime()),pT+10*s);
       }
       // Live USGS solid cyan line
       if(live2.length>1){
@@ -699,9 +693,9 @@ function noaaToFlow(pred, liveAbsMax){
 
 function drawFlowChart(period){
   const live=period==='1d'?flowHist1d:flowHist7d;
+  // Always show 48hr forecast on all periods
   let fcast=[];
-  if(period==='14d'&&noaaPredFuture.length){
-    // Only forecast from NOW forward, live data covers the past
+  if(noaaPredFuture.length&&live.length){
     const nowMs=Date.now();
     const futurePred=noaaPredFuture.filter(p=>p.t.getTime()>=nowMs-6*60000);
     if(futurePred.length>2){
@@ -709,7 +703,7 @@ function drawFlowChart(period){
       fcast=noaaToFlow(futurePred, liveAbsMax);
     }
   }
-  const combined=period==='14d'&&fcast.length?[...live,...fcast]:live;
+  const combined=fcast.length?[...live,...fcast]:live;
   if(!combined.length) return;
   const vals=combined.map(p=>p.v), rawMin=Math.min(...vals), rawMax=Math.max(...vals);
   const absMax=Math.max(Math.abs(rawMin),Math.abs(rawMax));
