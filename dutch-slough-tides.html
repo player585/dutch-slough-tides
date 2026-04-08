@@ -547,6 +547,28 @@ function startAnim(){if(animFrame)return;function loop(ts){nowPhase=ts;drawGageC
 
 // ── CHART CORE ─────────────────────────────────────────────────────
 
+// Find local peaks and troughs in a time series
+function findPeaksTroughs(pts, minSeparationMs=90*60000){
+  if(pts.length<3) return [];
+  const results=[];
+  for(let i=1;i<pts.length-1;i++){
+    const prev=pts[i-1].v, cur=pts[i].v, next=pts[i+1].v;
+    const isHigh=cur>prev&&cur>=next||cur>=prev&&cur>next;
+    const isLow=cur<prev&&cur<=next||cur<=prev&&cur<next;
+    if(!isHigh&&!isLow) continue;
+    // Enforce minimum separation
+    if(results.length&&pts[i].t-results[results.length-1].t<minSeparationMs) {
+      // Replace if this is a more extreme peak/trough
+      const last=results[results.length-1];
+      if((last.type==='H'&&isHigh&&cur>last.v)||(last.type==='L'&&isLow&&cur<last.v)){
+        results.pop();
+      } else continue;
+    }
+    results.push({date:pts[i].t, h:cur, type:isHigh?'H':'L'});
+  }
+  return results;
+}
+
 // Monotone cubic spline — guarantees no overshoot at data extrema
 function drawMonotone(ctx,pts,tx,ty){
   if(pts.length<2) return;
@@ -630,10 +652,11 @@ function drawChart(canvasId,allPts,st,opts){
       // For past points, snap to nearest live USGS measurement for accuracy
       let y;
       if(p.date.getTime()>Date.now()){
-        // Future: use NOAA predicted height adjusted by datum offset
-        // We find the offset from scaledFcast if available, else use p.h via nearest vis
-        const offset=opts.fcastOffset||0;
-        y=ty((p.h||0)+offset);
+        // Jersey Island hilo is ~1.75ft lower than Port Chicago (known constant datum diff)
+        // fcastOffset brings Port Chicago → USGS gage scale
+        // So Jersey Island → USGS = p.h + JERSEY_PC_DIFF + fcastOffset
+        const JERSEY_PC_DIFF=1.75;
+        y=ty((p.h||0)+JERSEY_PC_DIFF+(opts.fcastOffset||0));
       } else {
         let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
         y=ty(cl.v||p.h||0);
@@ -710,11 +733,15 @@ function drawGageChart(period){
   if(!combined.length) return;
   const allV=combined.map(p=>p.v);
   const vMin=Math.min(...allV)-0.3, vMax=Math.max(...allV)+0.4;
+  // All hi/lo dots from Jersey Island (9415053) — consistent source for past & future
+  // The forecast LINE uses Port Chicago + dynamic offset to match Jersey Island datum
+  // Dynamic offset = lastLive.v - nearest_PortChicago.v ≈ -1.75ft (known datum diff)
+  const datumOffset=scaledFcast.length&&live.length?(live[live.length-1].v-(noaaPredFuture.find(p=>Math.abs(p.t-live[live.length-1].t)<7*60000)||noaaPredFuture[0]||{v:0}).v):0;
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
     tPad:period==='1d'?0.25:0,
     hiloPoints:hiloWeek,
-    fcastOffset:scaledFcast.length&&live.length?(live[live.length-1].v-(noaaPredFuture.find(p=>Math.abs(p.t-live[live.length-1].t)<7*60000)||noaaPredFuture[0]||{v:0}).v):0,
+    fcastOffset:datumOffset,
     sunFn:calcSun,
     nowVal:latestGage,
     valLabel:v=>`${v.toFixed(2)} ft`,
