@@ -608,7 +608,9 @@ function hiloToCurve(hiloPoints, livePoints, intervalMs=6*60000){
   // Add last point
   const last=pts[pts.length-1];
   result.push({t:last.date,v:last.h+offset});
-  return result.filter(p=>p.t.getTime()>now-5*60000);
+  // Start forecast from last live USGS point (not wall-clock now) to avoid gaps
+  const startFrom=lastLive?lastLive.t.getTime():now-5*60000;
+  return result.filter(p=>p.t.getTime()>=startFrom);
 }
 
 // Find local peaks and troughs in a time series
@@ -872,8 +874,8 @@ function drawFlowChart(period){
   // Always show 48hr forecast on all periods
   let fcast=[];
   if(noaaPredFuture.length&&live.length){
-    const nowMs=Date.now();
-    const futurePred=noaaPredFuture.filter(p=>p.t.getTime()>=nowMs-6*60000);
+    const lastLiveT=live[live.length-1].t.getTime();
+    const futurePred=noaaPredFuture.filter(p=>p.t.getTime()>=lastLiveT);
     if(futurePred.length>2){
       const liveAbsMax=live.length?Math.max(...live.map(p=>Math.abs(p.v))):3000;
       fcast=noaaToFlow(futurePred, liveAbsMax);
