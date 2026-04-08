@@ -145,6 +145,8 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
     <div>
       <div class="site-name">DUTCH SLOUGH</div>
       <div class="site-sub">USGS 11313433 local · NOAA Port Chicago 9415144 wx</div>
+      <div id="sun-times" class="sun-times">☀ --:-- · --:--</div>
+      <div id="moon-info" class="moon-info">🌙 --</div>
 
     </div>
   </div>
@@ -190,47 +192,6 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       </div>
     </div>
     <div class="src-badge" id="usgs-updated">Connecting to USGS 11313433 + NOAA 9415144...</div>
-  </div>
-
-  <!-- SUN & MOON -->
-  <div class="card">
-    <div class="card-title"><span class="live-dot"></span>Sun &amp; Moon · Bethel Island</div>
-    <div class="sun-moon-grid">
-      <div class="sm-box sm-sun">
-        <div class="sm-icon">☀</div>
-        <div class="sm-detail">
-          <div class="sm-label">SUNRISE</div>
-          <div class="sm-val" id="sm-rise">--:--</div>
-        </div>
-        <div class="sm-detail">
-          <div class="sm-label">SUNSET</div>
-          <div class="sm-val" id="sm-set">--:--</div>
-        </div>
-        <div class="sm-detail">
-          <div class="sm-label">DAYLIGHT</div>
-          <div class="sm-val sm-day" id="sm-daylight">--h --m</div>
-        </div>
-      </div>
-      <div class="sm-box sm-moon">
-        <div class="sm-icon" id="sm-phase-icon">🌙</div>
-        <div class="sm-detail">
-          <div class="sm-label">PHASE</div>
-          <div class="sm-val sm-phase" id="sm-phase-name">--</div>
-        </div>
-        <div class="sm-detail">
-          <div class="sm-label">LIT</div>
-          <div class="sm-val sm-illum" id="sm-illum">--%</div>
-        </div>
-        <div class="sm-detail">
-          <div class="sm-label">MOONRISE</div>
-          <div class="sm-val" id="sm-mrise">--:--</div>
-        </div>
-        <div class="sm-detail">
-          <div class="sm-label">MOONSET</div>
-          <div class="sm-val" id="sm-mset">--:--</div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- NEXT TIDES (NOAA Prediction only - no live sensor at this station) -->
@@ -1111,33 +1072,22 @@ function renderMoonInfo(){
   const now=new Date();
   const moon=calcMoonPhase(now);
   const moonRS=calcMoonRiseSet(now);
-  const iconEl=document.getElementById('sm-phase-icon');
-  const nameEl=document.getElementById('sm-phase-name');
-  const illumEl=document.getElementById('sm-illum');
-  const mriseEl=document.getElementById('sm-mrise');
-  const msetEl=document.getElementById('sm-mset');
-  if(iconEl) iconEl.textContent=moon.emoji;
-  if(nameEl) nameEl.textContent=moon.name;
-  if(illumEl) illumEl.textContent=moon.illum+'%';
-  if(moonRS){
-    if(mriseEl) mriseEl.textContent=fmtSun(moonRS.rise);
-    if(msetEl) msetEl.textContent=fmtSun(moonRS.set);
-  }
+  const el=document.getElementById('moon-info');
+  if(!el) return;
+  let rsHtml='';
+  if(moonRS) rsHtml=`<span class="sun-div">·</span><span class="moon-rise">Rise ${fmtSun(moonRS.rise)}</span><span class="sun-div">·</span><span class="moon-set">Set ${fmtSun(moonRS.set)}</span>`;
+  el.innerHTML=`<span class="moon-icon">${moon.emoji}</span><span class="moon-phase">${moon.name}</span><span class="moon-illum">${moon.illum}%</span>${rsHtml}`;
 }
 
 function renderSunTimes(){
   const noon=new Date(); noon.setUTCHours(12,0,0,0);
   const sun=calcSun(noon);
   if(!sun) return;
-  const riseEl=document.getElementById('sm-rise');
-  const setEl=document.getElementById('sm-set');
-  const dayEl=document.getElementById('sm-daylight');
-  if(riseEl) riseEl.textContent=fmtSun(sun.rise);
-  if(setEl) setEl.textContent=fmtSun(sun.set);
-  if(dayEl){
-    const mins=Math.round((sun.set-sun.rise)/60000);
-    dayEl.textContent=`${Math.floor(mins/60)}h ${mins%60}m`;
-  }
+  const el=document.getElementById('sun-times');
+  if(!el) return;
+  const mins=Math.round((sun.set-sun.rise)/60000);
+  const daylight=`${Math.floor(mins/60)}h${mins%60}m`;
+  el.innerHTML=`<span class="sun-icon">☀</span><span class="sun-rise">Rise ${fmtSun(sun.rise)}</span><span class="sun-div">·</span><span class="sun-set">Set ${fmtSun(sun.set)}</span><span class="sun-div">·</span><span style="color:var(--gold);opacity:0.7;font-size:10px">${daylight}</span>`;
 }
 
 async function loadAll(){
