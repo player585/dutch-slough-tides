@@ -583,12 +583,45 @@ function drawChart(canvasId,allPts,st,opts){
   if(opts.drawFn) opts.drawFn(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s,vMin,vMax,vRange);
   // NOAA hilo dots
   if(opts.hiloPoints){
-    opts.hiloPoints.forEach(p=>{
-      if(p.date.getTime()<tMin||p.date.getTime()>tMax) return;
-      const x=tx(p.date.getTime()); if(isNaN(x)) return;
+    // Sort and deduplicate hilo points that are too close together (< 2px apart)
+    const sortedHL=opts.hiloPoints.filter(p=>p.date.getTime()>=tMin&&p.date.getTime()<=tMax)
+      .sort((a,b)=>a.date-b.date);
+    const visible=[];
+    sortedHL.forEach(p=>{
+      const x=tx(p.date.getTime());
+      if(!visible.length||Math.abs(x-tx(visible[visible.length-1].date.getTime()))>18*s) visible.push(p);
+    });
+    visible.forEach(p=>{
+      const x=tx(p.date.getTime()); if(isNaN(x)||x<pL||x>pL+cW) return;
+      // Find nearest vis point for y position
       let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
-      const y=ty(cl.v), col=p.type==='H'?'#ffc843':'#64b5f6';
-      ctx.beginPath();ctx.arc(x,y,4*s,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6*s;ctx.fill();ctx.shadowBlur=0;
+      const y=ty(cl.v||p.h);
+      const isH=p.type==='H', col=isH?'#ffc843':'#64b5f6';
+      const isFuture=p.date.getTime()>Date.now();
+      const dotR=isFuture?3*s:4*s;
+      // Draw dot
+      ctx.beginPath();ctx.arc(x,y,dotR,0,Math.PI*2);
+      ctx.fillStyle=isFuture?'rgba('+( isH?'255,200,67':'100,181,246')+',0.6)':col;
+      ctx.shadowColor=col;ctx.shadowBlur=isFuture?3*s:6*s;ctx.fill();ctx.shadowBlur=0;
+      if(isFuture){ctx.beginPath();ctx.arc(x,y,dotR,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=1*s;ctx.stroke();}
+      // Time label
+      const h=p.date.getHours(), m=p.date.getMinutes();
+      const ampm=h>=12?'p':'a', h12=h%12||12;
+      const tLbl=`${h12}:${String(m).padStart(2,'0')}${ampm}`;
+      const hLbl=`${isH?'H':'L'} ${(p.h||cl.v||0).toFixed(1)}`;
+      ctx.font=`${6.5*s}px Orbitron`;ctx.textAlign='center';
+      const yOff=isH?-12*s:12*s;  // H labels above dot, L labels below
+      // Background pill for readability
+      const lw=Math.max(ctx.measureText(tLbl).width,ctx.measureText(hLbl).width)+4*s;
+      const lh=9*s;
+      ctx.fillStyle='rgba(10,20,35,0.72)';
+      ctx.beginPath();ctx.roundRect(x-lw/2,y+yOff-(isH?lh*2+2*s:0),lw,lh*2+3*s,2*s);ctx.fill();
+      // Height value line
+      ctx.fillStyle=isFuture?col+'aa':col;
+      ctx.fillText(hLbl,x,y+yOff+(isH?-lh-1*s:lh));
+      // Time line
+      ctx.fillStyle=isFuture?'rgba(255,255,255,0.45)':'rgba(255,255,255,0.75)';
+      ctx.fillText(tLbl,x,y+yOff+(isH?-1*s:lh*2+1*s));
     });
   }
   // NOW line
