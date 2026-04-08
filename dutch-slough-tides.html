@@ -672,21 +672,38 @@ function drawGageChart(period){
 }
 
 // ── FLOW CHART ─────────────────────────────────────────────────────
-function noaaToFlow(pred,scale){
+// Convert NOAA 6-min tide heights to flow forecast
+// Scale is auto-calibrated: liveAbsMax / max(|dh/dt|) so amplitude matches history
+function noaaToFlow(pred, liveAbsMax){
   if(pred.length<2) return [];
-  return pred.map((p,i)=>{
-    if(i===0) return{t:p.t,v:0};
-    const dt=(p.t-pred[i-1].t)/60000, dv=(p.v-pred[i-1].v)/dt;
-    return{t:p.t, v:dv*scale};
+  // Step 1: compute raw derivatives (ft/min at each 6-min step)
+  const raw=pred.map((p,i)=>{
+    if(i===0) return 0;
+    const dt=(p.t-pred[i-1].t)/60000||6;
+    return (p.v-pred[i-1].v)/dt;
   });
+  // Step 2: smooth with 5-point moving average to match natural flow curves
+  const smoothed=raw.map((v,i)=>{
+    const win=raw.slice(Math.max(0,i-2),Math.min(raw.length,i+3));
+    return win.reduce((a,b)=>a+b,0)/win.length;
+  });
+  // Step 3: auto-scale so peak forecast amplitude = peak live amplitude
+  const maxDeriv=Math.max(...smoothed.map(Math.abs))||1;
+  const scale=liveAbsMax/maxDeriv;
+  return pred.map((p,i)=>({t:p.t, v:smoothed[i]*scale}));
 }
 
 function drawFlowChart(period){
   const live=period==='1d'?flowHist1d:flowHist7d;
   let fcast=[];
   if(period==='14d'&&noaaPredFuture.length){
-    const liveMax=live.length?Math.max(...live.map(p=>Math.abs(p.v))):2000;
-    fcast=noaaToFlow(noaaPredFuture, liveMax*0.35);
+    // Only forecast from NOW forward, live data covers the past
+    const nowMs=Date.now();
+    const futurePred=noaaPredFuture.filter(p=>p.t.getTime()>=nowMs-6*60000);
+    if(futurePred.length>2){
+      const liveAbsMax=live.length?Math.max(...live.map(p=>Math.abs(p.v))):3000;
+      fcast=noaaToFlow(futurePred, liveAbsMax);
+    }
   }
   const combined=period==='14d'&&fcast.length?[...live,...fcast]:live;
   if(!combined.length) return;
@@ -703,7 +720,7 @@ function drawFlowChart(period){
       const zy=ty(0), nowMs=Date.now();
       function seg(pts2,dashed){
         if(pts2.length<2) return;
-        const a=dashed?0.1:0.25;
+        const a=dashed?0.18:0.25;
         const fg=ctx.createLinearGradient(0,pT,0,zy);fg.addColorStop(0,`rgba(0,230,118,${a})`);fg.addColorStop(1,'rgba(0,230,118,0)');
         ctx.beginPath();ctx.moveTo(tx(pts2[0].t.getTime()),zy);
         for(let i=0;i<pts2.length;i++){const x=tx(pts2[i].t.getTime()),y=ty(Math.max(0,pts2[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(pts2[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.max(0,pts2[i-1].v)),cpx,y,x,y);}}
@@ -712,15 +729,15 @@ function drawFlowChart(period){
         ctx.beginPath();ctx.moveTo(tx(pts2[0].t.getTime()),zy);
         for(let i=0;i<pts2.length;i++){const x=tx(pts2[i].t.getTime()),y=ty(Math.min(0,pts2[i].v));if(i===0)ctx.moveTo(x,y);else{const cpx=(tx(pts2[i-1].t.getTime())+x)/2;ctx.bezierCurveTo(cpx,ty(Math.min(0,pts2[i-1].v)),cpx,y,x,y);}}
         ctx.lineTo(tx(pts2[pts2.length-1].t.getTime()),zy);ctx.closePath();ctx.fillStyle=eg;ctx.fill();
-        if(dashed)ctx.setLineDash([5*s,4*s]);
+        if(dashed)ctx.setLineDash([8*s,3*s]);
         for(let i=1;i<pts2.length;i++){
           const x0=tx(pts2[i-1].t.getTime()),y0=ty(pts2[i-1].v),x1=tx(pts2[i].t.getTime()),y1=ty(pts2[i].v);
           const mid=(pts2[i-1].v+pts2[i].v)/2, cpx=(x0+x1)/2;
           ctx.beginPath();ctx.moveTo(x0,y0);ctx.bezierCurveTo(cpx,y0,cpx,y1,x1,y1);
-          const al=dashed?0.4:0.85;
+          const al=dashed?0.75:0.85;
           ctx.strokeStyle=mid>=0?`rgba(0,230,118,${al})`:`rgba(255,82,82,${al})`;
-          ctx.lineWidth=dashed?1.5*s:2*s;
-          if(!dashed){ctx.shadowColor=mid>=0?'#00e676':'#ff5252';ctx.shadowBlur=4*s;}
+          ctx.lineWidth=dashed?2*s:2*s;
+          ctx.shadowColor=mid>=0?'#00e676':'#ff5252';ctx.shadowBlur=dashed?2*s:4*s;
           ctx.stroke();ctx.shadowBlur=0;
         }
         if(dashed)ctx.setLineDash([]);
