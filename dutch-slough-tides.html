@@ -719,7 +719,7 @@ function drawGageChart(period){
     nowVal:latestGage,
     valLabel:v=>`${v.toFixed(2)} ft`,
     drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s)=>{
-      const live2=live.filter(p=>p.t.getTime()<=combined[combined.length-1].t.getTime()+60000);
+      const live2=live; // draw all history as solid line
       // 48H NOAA forecast overlay — always shown on all periods
       if(scaledFcast.length>1){
         const fp=scaledFcast;
@@ -832,8 +832,8 @@ function drawFlowChart(period){
 }
 
 // ── PERIOD TOGGLES ─────────────────────────────────────────────────
-function setGagePeriod(p){gagePeriod=p;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('gage-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawGageChart(p);}
-function setFlowPeriod(p){flowPeriod=p;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('flow-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawFlowChart(p);}
+function setGagePeriod(p){gagePeriod=p;ZP.gage.zoom=1;ZP.gage.panOffset=0;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('gage-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawGageChart(p);}
+function setFlowPeriod(p){flowPeriod=p;ZP.flow.zoom=1;ZP.flow.panOffset=0;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('flow-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawFlowChart(p);}
 
 // Countdown refresh
 setInterval(()=>{if(upcoming[0])document.getElementById('pn-cd').textContent=cdStr(upcoming[0].date);if(upcoming[1])document.getElementById('pa-cd').textContent=cdStr(upcoming[1].date);},30000);
@@ -872,7 +872,9 @@ function fmtSun(d){
 }
 
 function renderSunTimes(){
-  const sun=calcSun(new Date());
+  // Pass noon UTC of today so algorithm returns correct local-time rise/set
+  const noon=new Date(); noon.setUTCHours(12,0,0,0);
+  const sun=calcSun(noon);
   if(!sun) return;
   const el=document.getElementById('sun-times');
   if(!el) return;
