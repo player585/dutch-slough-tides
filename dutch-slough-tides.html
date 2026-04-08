@@ -287,6 +287,7 @@ const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
 
 // ── CONSTANTS ─────────────────────────────────────────────────────
 const NOAA_WX_STATION = '9415144';   // Port Chicago — closest water temp + air + wind (22.2mi)
+const JERSEY_PC_OFFSET = 1.7;        // Avg datum diff: Port Chicago MLLW ≈ Jersey Island MLLW + 1.7 ft
 
 // ── STATE ──────────────────────────────────────────────────────────
 let gageHist1d=[], gageHist7d=[];    // USGS gage height
@@ -376,13 +377,28 @@ async function fetchNoaaHiLo(begin,end){
   return (d.predictions||[]).map(p=>({...p, date:parseNoaaT(p.t), h:parseFloat(p.v)}));
 }
 
-// ── NOAA 6-MIN PREDICTIONS ─────────────────────────────────────────
+// ── NOAA 6-MIN PREDICTIONS (Jersey Island first, Port Chicago fallback) ──
 async function fetchNoaa6min(begin,end){
-  const u=new URL(NOAA_API);
-  Object.entries({station:NOAA_PRED_6MIN,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'6',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u); const d=await r.json();
-  if(d.error) return [];
-  return (d.predictions||[]).map(p=>({t:parseNoaaT(p.t), v:parseFloat(p.v)}));
+  // Try Jersey Island first (closest to Dutch Slough)
+  for(const stn of [NOAA_PRED, NOAA_PRED_6MIN]){
+    try{
+      const u=new URL(NOAA_API);
+      Object.entries({station:stn,product:'predictions',begin_date:begin,end_date:end,
+        datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'6',format:'json'})
+        .forEach(([k,v])=>u.searchParams.set(k,v));
+      const r=await fetch(u); const d=await r.json();
+      if(d.predictions&&d.predictions.length>0){
+        const isPC=(stn===NOAA_PRED_6MIN);
+        console.log(`6-min predictions from ${stn}${isPC?' (adjusted -'+JERSEY_PC_OFFSET+'ft)':''}`);
+        // If Port Chicago fallback, subtract 1.7 to normalize to Jersey Island scale
+        return d.predictions.map(p=>({
+          t:parseNoaaT(p.t),
+          v:parseFloat(p.v) - (isPC ? JERSEY_PC_OFFSET : 0)
+        }));
+      }
+    }catch(e){ console.warn('6min failed for',stn,e.message); }
+  }
+  return [];
 }
 
 // ── RENDER LIVE STATS ──────────────────────────────────────────────
@@ -562,77 +578,50 @@ function startAnim(){if(animFrame)return;function loop(ts){nowPhase=ts;drawGageC
 
 // ── CHART CORE ─────────────────────────────────────────────────────
 
-// Build forecast curve by cosine-interpolating between Jersey Island hi/lo points
-// Guarantees curve passes exactly through each hi/lo dot
-function hiloToCurve(hiloPoints, livePoints, intervalMs=6*60000){
-  // Only use future hilo points
-  const now=Date.now();
-  // Get last live point as anchor (t, v)
+// ── GAGE FORECAST ───────────────────────────────────────────────────
+// Build forecast from Jersey Island hi/lo, mapped to USGS gage scale.
+// Strategy:
+//   1. Cosine-interpolate between hi/lo for smooth 6-min resolution curve
+//   2. Calibrate offset = last USGS reading − Jersey interpolated at same time
+//   3. Apply offset uniformly — forecast starts exactly where USGS ends (no gap)
+//   4. If Jersey Island data unavailable and Port Chicago used, the 1.7ft
+//      correction was already applied upstream in fetchNoaa6min/fetchNoaaHiLo.
+function buildGageForecast(hiloPoints, livePoints){
+  const pts=hiloPoints.slice().sort((a,b)=>a.date-b.date);
+  if(pts.length<2) return {curve:[],offset:0};
+
   const lastLive=livePoints.length?livePoints[livePoints.length-1]:null;
-  // Get hilo points from just before now (to anchor) through future
-  const pts=hiloPoints.filter(p=>p.date.getTime()>now-3*3600000)
-    .sort((a,b)=>a.date-b.date);
-  if(pts.length<2) return [];
+  const startT=lastLive?lastLive.t.getTime():Date.now();
+  const STEP=6*60000; // 6-min resolution
 
-  // Compute datum offset: map Jersey Island heights to USGS gage scale
-  // Use last live USGS point vs interpolated Jersey Island at that time
-  let offset=0;
-  if(lastLive){
-    // Find surrounding hilo bracket for lastLive time
-    const before=pts.filter(p=>p.date<=lastLive.t).pop();
-    const after=pts.find(p=>p.date>lastLive.t);
-    if(before&&after){
-      // Cosine interpolate Jersey Island at lastLive.t
-      const t0=before.date.getTime(), t1=after.date.getTime();
-      const frac=(lastLive.t.getTime()-t0)/(t1-t0);
-      const mu2=(1-Math.cos(frac*Math.PI))/2;
-      const jerseyAtNow=before.h*(1-mu2)+after.h*mu2;
-      offset=lastLive.v-jerseyAtNow; // USGS gage - Jersey Island = correction
-    }
-  }
-
-  // Generate dense curve points
-  const result=[];
+  // Step 1: Dense cosine curve from Jersey Island hi/lo
+  const jersey=[];
   for(let i=0;i<pts.length-1;i++){
-    const p0=pts[i], p1=pts[i+1];
-    const t0=p0.date.getTime(), t1=p1.date.getTime();
-    const v0=p0.h+offset, v1=p1.h+offset;
-    // Sample from t0 to t1 every intervalMs
-    for(let t=t0;t<=t1;t+=intervalMs){
-      const frac=(t-t0)/(t1-t0);
-      const mu2=(1-Math.cos(frac*Math.PI))/2;
-      const v=v0*(1-mu2)+v1*mu2;
-      result.push({t:new Date(t),v});
+    const t0=pts[i].date.getTime(), t1=pts[i+1].date.getTime();
+    const v0=pts[i].h, v1=pts[i+1].h;
+    for(let t=t0;t<=t1;t+=STEP){
+      const mu=(1-Math.cos(((t-t0)/(t1-t0))*Math.PI))/2;
+      jersey.push({t:new Date(t), v:v0*(1-mu)+v1*mu});
     }
   }
-  // Add last point
-  const last=pts[pts.length-1];
-  result.push({t:last.date,v:last.h+offset});
-  // Start forecast from last live USGS point (not wall-clock now) to avoid gaps
-  const startFrom=lastLive?lastLive.t.getTime():now-5*60000;
-  return result.filter(p=>p.t.getTime()>=startFrom);
-}
+  jersey.push({t:pts[pts.length-1].date, v:pts[pts.length-1].h});
 
-// Find local peaks and troughs in a time series
-function findPeaksTroughs(pts, minSeparationMs=90*60000){
-  if(pts.length<3) return [];
-  const results=[];
-  for(let i=1;i<pts.length-1;i++){
-    const prev=pts[i-1].v, cur=pts[i].v, next=pts[i+1].v;
-    const isHigh=cur>prev&&cur>=next||cur>=prev&&cur>next;
-    const isLow=cur<prev&&cur<=next||cur<=prev&&cur<next;
-    if(!isHigh&&!isLow) continue;
-    // Enforce minimum separation
-    if(results.length&&pts[i].t-results[results.length-1].t<minSeparationMs) {
-      // Replace if this is a more extreme peak/trough
-      const last=results[results.length-1];
-      if((last.type==='H'&&isHigh&&cur>last.v)||(last.type==='L'&&isLow&&cur<last.v)){
-        results.pop();
-      } else continue;
+  // Step 2: Calibrate USGS↔Jersey offset from last live overlap
+  let offset=0;
+  if(lastLive&&jersey.length){
+    let best=jersey[0];
+    for(const p of jersey){
+      if(Math.abs(p.t.getTime()-startT)<Math.abs(best.t.getTime()-startT)) best=p;
     }
-    results.push({date:pts[i].t, h:cur, type:isHigh?'H':'L'});
+    offset=lastLive.v-best.v; // USGS gage − Jersey predicted
   }
-  return results;
+
+  // Step 3: Filter to forecast window + apply offset
+  const curve=jersey
+    .filter(p=>p.t.getTime()>=startT)
+    .map(p=>({t:p.t, v:p.v+offset}));
+
+  return {curve, offset};
 }
 
 // Monotone cubic spline — guarantees no overshoot at data extrema
@@ -713,42 +702,35 @@ function drawChart(canvasId,allPts,st,opts){
     });
     visible.forEach(p=>{
       const x=tx(p.date.getTime()); if(isNaN(x)||x<pL||x>pL+cW) return;
-      // Find nearest vis point for y position
-      // For future hi/lo points, use the NOAA predicted height directly (p.h)
-      // For past points, snap to nearest live USGS measurement for accuracy
-      let y;
-      if(p.date.getTime()>Date.now()){
-        // fcastOffset = USGS_lastLive - Jersey_Island_interpolated_at_lastLive
-        // This is the exact same offset used in hiloToCurve → dots align with curve
-        y=ty((p.h||0)+(opts.fcastOffset||0));
-      } else {
-        let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
-        y=ty(cl.v||p.h||0);
-      }
       const isH=p.type==='H', col=isH?'#ffc843':'#64b5f6';
       const isFuture=p.date.getTime()>Date.now();
+      // Y position + label value: future=Jersey+offset, past=snap to USGS
+      let y, dotVal;
+      if(isFuture){
+        dotVal=(p.h||0)+(opts.fcastOffset||0);
+        y=ty(dotVal);
+      } else {
+        let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
+        dotVal=cl.v||p.h||0;
+        y=ty(dotVal);
+      }
       const dotR=isFuture?3*s:4*s;
-      // Draw dot
       ctx.beginPath();ctx.arc(x,y,dotR,0,Math.PI*2);
-      ctx.fillStyle=isFuture?'rgba('+( isH?'255,200,67':'100,181,246')+',0.6)':col;
+      ctx.fillStyle=isFuture?'rgba('+(isH?'255,200,67':'100,181,246')+',0.6)':col;
       ctx.shadowColor=col;ctx.shadowBlur=isFuture?3*s:6*s;ctx.fill();ctx.shadowBlur=0;
       if(isFuture){ctx.beginPath();ctx.arc(x,y,dotR,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=1*s;ctx.stroke();}
-      // Time label
       const h=p.date.getHours(), m=p.date.getMinutes();
       const ampm=h>=12?'p':'a', h12=h%12||12;
       const tLbl=`${h12}:${String(m).padStart(2,'0')}${ampm}`;
-      const hLbl=`${isH?'H':'L'} ${(p.h||cl.v||0).toFixed(1)}`;
+      const hLbl=`${isH?'H':'L'} ${dotVal.toFixed(1)}`;
       ctx.font=`${6.5*s}px Orbitron`;ctx.textAlign='center';
-      const yOff=isH?-12*s:12*s;  // H labels above dot, L labels below
-      // Background pill for readability
+      const yOff=isH?-12*s:12*s;
       const lw=Math.max(ctx.measureText(tLbl).width,ctx.measureText(hLbl).width)+4*s;
       const lh=9*s;
       ctx.fillStyle='rgba(10,20,35,0.72)';
       ctx.beginPath();ctx.roundRect(x-lw/2,y+yOff-(isH?lh*2+2*s:0),lw,lh*2+3*s,2*s);ctx.fill();
-      // Height value line
       ctx.fillStyle=isFuture?col+'aa':col;
       ctx.fillText(hLbl,x,y+yOff+(isH?-lh-1*s:lh));
-      // Time line
       ctx.fillStyle=isFuture?'rgba(255,255,255,0.45)':'rgba(255,255,255,0.75)';
       ctx.fillText(tLbl,x,y+yOff+(isH?-1*s:lh*2+1*s));
     });
@@ -778,70 +760,70 @@ function drawChart(canvasId,allPts,st,opts){
   if(st.zoom>1.1){ctx.fillStyle='rgba(0,180,255,0.35)';ctx.font=`${8*s}px Share Tech Mono`;ctx.textAlign='right';ctx.fillText(`${st.zoom.toFixed(1)}x`,W-pR,pT+10*s);}
 }
 
-// ── GAGE HEIGHT CHART ──────────────────────────────────────────────
+// ── GAGE HEIGHT CHART (rebuilt clean) ──────────────────────────────
+// Data: USGS 11313433 (live) + Jersey Island 9415053 hi/lo (forecast)
+// Offset: calibrated from last USGS↔Jersey overlap, applied uniformly
+// Dots & forecast curve share the same offset — guaranteed alignment
 function drawGageChart(period){
   const live=period==='1d'?gageHist1d:gageHist7d;
-  // Always show 48hr forecast on all periods
-  let combined=live;
-  let scaledFcast=[];
+  let combined=live, fcast=[], gageOffset=0;
+
   if(hiloWeek.length&&live.length){
-    // Build forecast curve from Jersey Island hi/lo — GUARANTEES line passes through dots
-    scaledFcast=hiloToCurve(hiloWeek,live,6*60000);
-    if(scaledFcast.length) combined=[...live,...scaledFcast.filter(p=>p.t>live[live.length-1].t)];
+    const result=buildGageForecast(hiloWeek,live);
+    fcast=result.curve;
+    gageOffset=result.offset;
+    if(fcast.length) combined=[...live,...fcast.filter(p=>p.t>live[live.length-1].t)];
   }
   if(!combined.length) return;
+
   const allV=combined.map(p=>p.v);
   const vMin=Math.min(...allV)-0.3, vMax=Math.max(...allV)+0.4;
-  // All hi/lo dots from Jersey Island (9415053) — consistent source for past & future
-  // The forecast LINE uses Port Chicago + dynamic offset to match Jersey Island datum
-  // Dynamic offset = lastLive.v - nearest_PortChicago.v ≈ -1.75ft (known datum diff)
-  // Compute Jersey Island → USGS offset for hi/lo dot positioning
-  // Same computation used inside hiloToCurve
-  let dotOffset=0;
-  if(live.length&&hiloWeek.length){
-    const lastLive=live[live.length-1];
-    const now2=lastLive.t.getTime();
-    const before=hiloWeek.filter(p=>p.date.getTime()<=now2).pop();
-    const after=hiloWeek.find(p=>p.date.getTime()>now2);
-    if(before&&after){
-      const t0=before.date.getTime(),t1=after.date.getTime();
-      const frac=(now2-t0)/(t1-t0);
-      const mu2=(1-Math.cos(frac*Math.PI))/2;
-      const jerseyAtNow=before.h*(1-mu2)+after.h*mu2;
-      dotOffset=lastLive.v-jerseyAtNow;
-    }
-  }
+
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
     tPad:period==='1d'?0.25:0,
     hiloPoints:hiloWeek,
-    fcastOffset:dotOffset,
-    sunFn:calcSun,
+    fcastOffset:gageOffset,
     nowVal:latestGage,
     valLabel:v=>`${v.toFixed(2)} ft`,
     drawFn:(ctx,vis,tx,ty,pL,pR,pT,pB,cW,cH,W,H,s)=>{
-      const live2=live; // draw all history as solid line
-      // 48H NOAA forecast overlay — always shown on all periods
-      if(scaledFcast.length>1){
-        const fp=scaledFcast;
-        const fg=ctx.createLinearGradient(0,pT,0,pT+cH);fg.addColorStop(0,'rgba(0,180,255,0.12)');fg.addColorStop(1,'rgba(0,180,255,0)');
-        ctx.beginPath();
-        drawMonotone(ctx,fp,tx,ty);
-        ctx.lineTo(tx(fp[fp.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(fp[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=fg;ctx.fill();
+      // ── 48H forecast (dashed, drawn first so live paints over) ──
+      if(fcast.length>1){
+        const fg=ctx.createLinearGradient(0,pT,0,pT+cH);
+        fg.addColorStop(0,'rgba(0,180,255,0.12)');fg.addColorStop(1,'rgba(0,180,255,0)');
+        ctx.beginPath();drawMonotone(ctx,fcast,tx,ty);
+        ctx.lineTo(tx(fcast[fcast.length-1].t.getTime()),pT+cH);
+        ctx.lineTo(tx(fcast[0].t.getTime()),pT+cH);
+        ctx.closePath();ctx.fillStyle=fg;ctx.fill();
         ctx.beginPath();ctx.setLineDash([8*s,3*s]);
-        drawMonotone(ctx,fp,tx,ty);
-        ctx.strokeStyle='rgba(0,180,255,0.65)';ctx.lineWidth=2*s;ctx.shadowColor='rgba(0,180,255,0.4)';ctx.shadowBlur=5*s;ctx.stroke();ctx.shadowBlur=0;ctx.setLineDash([]);
-        const mp=fp[Math.floor(fp.length*0.5)];ctx.fillStyle='rgba(0,180,255,0.45)';ctx.font=`${7*s}px Orbitron`;ctx.textAlign='center';ctx.fillText('▶ 48H FORECAST',tx(mp.t.getTime()),pT+10*s);
+        drawMonotone(ctx,fcast,tx,ty);
+        ctx.strokeStyle='rgba(0,180,255,0.65)';ctx.lineWidth=2*s;
+        ctx.shadowColor='rgba(0,180,255,0.4)';ctx.shadowBlur=5*s;
+        ctx.stroke();ctx.shadowBlur=0;ctx.setLineDash([]);
+        const mp=fcast[Math.floor(fcast.length*0.5)];
+        ctx.fillStyle='rgba(0,180,255,0.45)';ctx.font=`${7*s}px Orbitron`;
+        ctx.textAlign='center';ctx.fillText('▶ 48H FORECAST',tx(mp.t.getTime()),pT+10*s);
       }
-      // Live USGS solid cyan line
-      if(live2.length>1){
-        const grad=ctx.createLinearGradient(0,pT,0,pT+cH);grad.addColorStop(0,'rgba(0,180,255,0.25)');grad.addColorStop(1,'rgba(0,180,255,0)');
-        ctx.beginPath();ctx.moveTo(tx(live2[0].t.getTime()),ty(live2[0].v));
-        for(let i=1;i<live2.length;i++){const cpx=(tx(live2[i-1].t.getTime())+tx(live2[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(live2[i-1].v),cpx,ty(live2[i].v),tx(live2[i].t.getTime()),ty(live2[i].v));}
-        ctx.lineTo(tx(live2[live2.length-1].t.getTime()),pT+cH);ctx.lineTo(tx(live2[0].t.getTime()),pT+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-        ctx.beginPath();ctx.moveTo(tx(live2[0].t.getTime()),ty(live2[0].v));
-        for(let i=1;i<live2.length;i++){const cpx=(tx(live2[i-1].t.getTime())+tx(live2[i].t.getTime()))/2;ctx.bezierCurveTo(cpx,ty(live2[i-1].v),cpx,ty(live2[i].v),tx(live2[i].t.getTime()),ty(live2[i].v));}
-        ctx.strokeStyle='#00b4ff';ctx.lineWidth=2*s;ctx.shadowColor='rgba(0,180,255,0.6)';ctx.shadowBlur=6*s;ctx.stroke();ctx.shadowBlur=0;
+      // ── Live USGS (solid cyan, on top) ──
+      if(live.length>1){
+        const grad=ctx.createLinearGradient(0,pT,0,pT+cH);
+        grad.addColorStop(0,'rgba(0,180,255,0.25)');grad.addColorStop(1,'rgba(0,180,255,0)');
+        ctx.beginPath();ctx.moveTo(tx(live[0].t.getTime()),ty(live[0].v));
+        for(let i=1;i<live.length;i++){
+          const cpx=(tx(live[i-1].t.getTime())+tx(live[i].t.getTime()))/2;
+          ctx.bezierCurveTo(cpx,ty(live[i-1].v),cpx,ty(live[i].v),tx(live[i].t.getTime()),ty(live[i].v));
+        }
+        ctx.lineTo(tx(live[live.length-1].t.getTime()),pT+cH);
+        ctx.lineTo(tx(live[0].t.getTime()),pT+cH);
+        ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+        ctx.beginPath();ctx.moveTo(tx(live[0].t.getTime()),ty(live[0].v));
+        for(let i=1;i<live.length;i++){
+          const cpx=(tx(live[i-1].t.getTime())+tx(live[i].t.getTime()))/2;
+          ctx.bezierCurveTo(cpx,ty(live[i-1].v),cpx,ty(live[i].v),tx(live[i].t.getTime()),ty(live[i].v));
+        }
+        ctx.strokeStyle='#00b4ff';ctx.lineWidth=2*s;
+        ctx.shadowColor='rgba(0,180,255,0.6)';ctx.shadowBlur=6*s;
+        ctx.stroke();ctx.shadowBlur=0;
       }
     }
   });
@@ -1115,7 +1097,7 @@ async function loadAll(){
     startAnim();
     renderSunTimes();
     renderMoonInfo();
-    setStatus(`Live · USGS 11313433 + Port Chicago 9415144 · ${new Date().toLocaleTimeString()}`, 'live');
+    setStatus(`Live · USGS 11313433 + Jersey Island 9415053 · ${new Date().toLocaleTimeString()}`, 'live');
   }catch(e){
     setStatus(`Error: ${e.message}`, 'err');
     console.error(e);
