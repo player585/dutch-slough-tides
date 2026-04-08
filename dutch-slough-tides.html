@@ -117,18 +117,6 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 .moon-illum{color:rgba(200,192,255,0.6);font-size:10px}
 .moon-rise{color:#a0a8ff}
 .moon-set{color:#7878cc}
-.sun-moon-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
-.sm-box{background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:10px 8px;display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap}
-.sm-sun{border-color:rgba(255,200,67,0.25)}
-.sm-moon{border-color:rgba(160,160,255,0.25)}
-.sm-icon{font-size:28px;line-height:1;flex-shrink:0}
-.sm-detail{display:flex;flex-direction:column;align-items:center;min-width:44px}
-.sm-label{font-size:8px;font-family:'Orbitron',monospace;color:var(--color-text-muted);letter-spacing:1px;margin-bottom:2px}
-.sm-val{font-size:14px;font-family:'Orbitron',monospace;color:var(--color-text);font-weight:600}
-.sm-day{color:#ffda6a;font-size:12px}
-.sm-phase{color:#c8c0ff;font-size:11px;text-align:center}
-.sm-illum{color:rgba(200,192,255,0.85)}
-@media(max-width:500px){.sun-moon-grid{grid-template-columns:1fr}.sm-box{gap:8px}}
 .sv-wtemp{font-size:20px;color:var(--green)}
 .sv-airtemp{font-size:20px;color:var(--gold)}
 .sv-wind{font-size:14px;color:var(--muted)}
@@ -147,7 +135,6 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
       <div class="site-sub">USGS 11313433 local · NOAA Port Chicago 9415144 wx</div>
       <div id="sun-times" class="sun-times">☀ --:-- · --:--</div>
       <div id="moon-info" class="moon-info">🌙 --</div>
-
     </div>
   </div>
   <div id="clock">--:-- --</div>
@@ -470,8 +457,6 @@ function renderWeekly(hilo){
 
 // ── FISHING CONDITIONS ─────────────────────────────────────────────
 function evalFishing(hilo){
-  // Moon factor — affects catfish feeding (bright moon = good night bite, new moon = slower)
-  const moonNow=calcMoonPhase(new Date());
   const now=new Date();
   const past=hilo.filter(p=>p.date<=now).sort((a,b)=>b.date-a.date);
   const future=hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date);
@@ -527,15 +512,6 @@ function evalFishing(hilo){
     else if(wind>20){score-=1;factors.push({txt:`Wind ${wind}mph strong`,pos:false});}
     else{factors.push({txt:`Wind ${wind}mph moderate`,pos:null});}
   }
-  // Moon phase (catfish bite better under bright moon at night, solunar effect near full/new)
-  const isNight=new Date().getHours()<6||new Date().getHours()>20;
-  const mp=moonNow.phase;
-  const nearFull=Math.abs(mp-0.5)<0.1; // within ~3 days of full
-  const nearNew=mp<0.1||mp>0.9;        // within ~3 days of new
-  if(nearFull){score+=2;factors.push({txt:`${moonNow.emoji} Full moon ${isNight?'night bite↑':'solunar'}`,pos:true});}
-  else if(nearNew){score+=1;factors.push({txt:`${moonNow.emoji} New moon solunar`,pos:true});}
-  else if(moonNow.illum>60&&isNight){score+=1;factors.push({txt:`${moonNow.emoji} Bright moon ${moonNow.illum}%`,pos:true});}
-  else{factors.push({txt:`${moonNow.emoji} ${moonNow.name} ${moonNow.illum}%`,pos:null});}
 
   let rating,icon,title;
   if(score>=7){rating='excellent';icon='🔥';title='🔥 PRIME WINDOW — GO NOW';}
@@ -550,12 +526,11 @@ function evalFishing(hilo){
   const wtPart=wt!=null?` Water ${wt.toFixed(1)}°F${wt>=65&&wt<=80?' (prime)':wt<60?' (cold)':''}.`:'';
   const flowPart=latestFlow!==null?` Flow: ${Math.abs(latestFlow)>=1000?(Math.abs(latestFlow)/1000).toFixed(1)+'k':Math.round(Math.abs(latestFlow))} ft³/s ${latestFlow>=0?'(flood)':'(ebb)'}.`:'';
   const wxPart=airT!=null?` Air ${Math.round(airT)}°F, wind ${wind||'--'}mph ${wxData.windDir||''}.`:'';
-  const moonPart=` ${moonNow.emoji} ${moonNow.name} ${moonNow.illum}%.`;;
 
   document.getElementById('ficon').textContent=icon;
   document.getElementById('ftitle').className=`fish-title ${rating}`;
   document.getElementById('ftitle').textContent=title;
-  document.getElementById('freason').textContent=tidePart+wtPart+flowPart+wxPart+moonPart;
+  document.getElementById('freason').textContent=tidePart+wtPart+flowPart+wxPart;
   document.getElementById('fish-factors').innerHTML=factors.map(f=>`<span class="factor ${f.pos===true?'pos':f.pos===false?'neg':'neu'}">${f.txt}</span>`).join('');
 }
 
@@ -737,10 +712,8 @@ function drawChart(canvasId,allPts,st,opts){
         // This is the exact same offset used in hiloToCurve → dots align with curve
         y=ty((p.h||0)+(opts.fcastOffset||0));
       } else {
-        // For past dots snap to nearest live USGS point for accuracy
-        let cl=vis[0];
-        vis.forEach(g=>{if(g.t.getTime()<=Date.now()&&Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
-        y=ty(cl.v!=null?cl.v:(p.h||0));
+        let cl=vis[0]; vis.forEach(g=>{if(Math.abs(g.t-p.date)<Math.abs(cl.t-p.date))cl=g;});
+        y=ty(cl.v||p.h||0);
       }
       const isH=p.type==='H', col=isH?'#ffc843':'#64b5f6';
       const isFuture=p.date.getTime()>Date.now();
@@ -754,9 +727,7 @@ function drawChart(canvasId,allPts,st,opts){
       const h=p.date.getHours(), m=p.date.getMinutes();
       const ampm=h>=12?'p':'a', h12=h%12||12;
       const tLbl=`${h12}:${String(m).padStart(2,'0')}${ampm}`;
-      // Label value: use scale-correct value so it matches Y axis
-      const labelV=p.date.getTime()>Date.now()?(p.h+(opts.fcastOffset||0)):(cl&&cl.v!=null?cl.v:p.h||0);
-      const hLbl=`${isH?'H':'L'} ${labelV.toFixed(1)}`;
+      const hLbl=`${isH?'H':'L'} ${(p.h||cl.v||0).toFixed(1)}`;
       ctx.font=`${6.5*s}px Orbitron`;ctx.textAlign='center';
       const yOff=isH?-12*s:12*s;  // H labels above dot, L labels below
       // Background pill for readability
@@ -809,7 +780,13 @@ function drawGageChart(period){
     if(scaledFcast.length) combined=[...live,...scaledFcast.filter(p=>p.t>live[live.length-1].t)];
   }
   if(!combined.length) return;
-  // Compute Jersey Island → USGS offset FIRST (used in scale calc and dot positions)
+  const allV=combined.map(p=>p.v);
+  const vMin=Math.min(...allV)-0.3, vMax=Math.max(...allV)+0.4;
+  // All hi/lo dots from Jersey Island (9415053) — consistent source for past & future
+  // The forecast LINE uses Port Chicago + dynamic offset to match Jersey Island datum
+  // Dynamic offset = lastLive.v - nearest_PortChicago.v ≈ -1.75ft (known datum diff)
+  // Compute Jersey Island → USGS offset for hi/lo dot positioning
+  // Same computation used inside hiloToCurve
   let dotOffset=0;
   if(live.length&&hiloWeek.length){
     const lastLive=live[live.length-1];
@@ -824,12 +801,6 @@ function drawGageChart(period){
       dotOffset=lastLive.v-jerseyAtNow;
     }
   }
-  const allV=combined.map(p=>p.v);
-  const futureHiloV=hiloWeek
-    .filter(p=>p.date.getTime()>Date.now())
-    .map(p=>p.h+dotOffset);
-  const allVExt=[...allV,...futureHiloV];
-  const vMin=Math.min(...allVExt)-0.4, vMax=Math.max(...allVExt)+0.5;
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
     tPad:period==='1d'?0.25:0,
@@ -1074,30 +1045,21 @@ function renderMoonInfo(){
   const moonRS=calcMoonRiseSet(now);
   const el=document.getElementById('moon-info');
   if(!el) return;
-  let rsHtml='';
-  if(moonRS) rsHtml=`<span class="sun-div">·</span><span class="moon-rise">Rise ${fmtSun(moonRS.rise)}</span><span class="sun-div">·</span><span class="moon-set">Set ${fmtSun(moonRS.set)}</span>`;
-  el.innerHTML=`<span class="moon-icon">${moon.emoji}</span><span class="moon-phase">${moon.name}</span><span class="moon-illum">${moon.illum}%</span>${rsHtml}`;
+  let riseSetHtml='';
+  if(moonRS){
+    riseSetHtml=`<span class="moon-rise">Rise ${fmtSun(moonRS.rise)}</span><span class="sun-div">·</span><span class="moon-set">Set ${fmtSun(moonRS.set)}</span>`;
+  }
+  el.innerHTML=`<span class="moon-icon">${moon.emoji}</span><span class="moon-phase">${moon.name}</span><span class="moon-illum">${moon.illum}%</span>${riseSetHtml?'<span class="sun-div">·</span>'+riseSetHtml:''}`;
 }
 
 function renderSunTimes(){
+  // Pass noon UTC of today so algorithm returns correct local-time rise/set
   const noon=new Date(); noon.setUTCHours(12,0,0,0);
   const sun=calcSun(noon);
   if(!sun) return;
   const el=document.getElementById('sun-times');
   if(!el) return;
-  const mins=Math.round((sun.set-sun.rise)/60000);
-  const daylight=`${Math.floor(mins/60)}h${mins%60}m`;
-  el.innerHTML=`<span class="sun-icon">☀</span><span class="sun-rise">Rise ${fmtSun(sun.rise)}</span><span class="sun-div">·</span><span class="sun-set">Set ${fmtSun(sun.set)}</span><span class="sun-div">·</span><span style="color:var(--gold);opacity:0.7;font-size:10px">${daylight}</span>`;
-}
-
-// ── SAFE FETCH WRAPPERS (resilient — one failure won't crash everything) ──
-async function safeUSGS(param, period){
-  try{ return await fetchUSGS(param, period); }
-  catch(e){ console.warn('USGS fetch failed:',param,period,e.message); return []; }
-}
-async function safeNoaa(fn, ...args){
-  try{ return await fn(...args); }
-  catch(e){ console.warn('NOAA fetch failed:',e.message); return []; }
+  el.innerHTML=`<span class="sun-icon">☀</span><span class="sun-rise">Rise ${fmtSun(sun.rise)}</span><span class="sun-div">·</span><span class="sun-set">Set ${fmtSun(sun.set)}</span>`;
 }
 
 async function loadAll(){
@@ -1107,14 +1069,14 @@ async function loadAll(){
   const future2=ymd(new Date(Date.now()+2*86400000)); // 48-hour forecast window
   try{
     const [g1d,g7d,f1d,f7d,hiloExt,hw,predFuture,wx]=await Promise.all([
-      safeUSGS('00065','P1D'),
-      safeUSGS('00065','P7D'),
-      safeUSGS('00060','P1D'),
-      safeUSGS('00060','P7D'),
-      safeNoaa(fetchNoaaHiLo,today,tomorrow),
-      safeNoaa(fetchNoaaHiLo,today,future7),
-      safeNoaa(fetchNoaa6min,today,future2),
-      fetchPortChicagoWx().catch(()=>({}))
+      fetchUSGS('00065','P1D'),
+      fetchUSGS('00065','P7D'),
+      fetchUSGS('00060','P1D'),
+      fetchUSGS('00060','P7D'),
+      fetchNoaaHiLo(today,tomorrow),
+      fetchNoaaHiLo(today,future7),
+      fetchNoaa6min(today,future2),   // 48-hour forecast only
+      fetchPortChicagoWx()
     ]);
     gageHist1d=g1d; gageHist7d=g7d;
     flowHist1d=f1d; flowHist7d=f7d;
@@ -1133,8 +1095,7 @@ async function loadAll(){
     startAnim();
     renderSunTimes();
     renderMoonInfo();
-    const partial=[g7d,f7d,hiloExt,hw].some(a=>!a.length);
-    setStatus(`${partial?'Partial data':'Live'} · USGS 11313433 + Port Chicago 9415144 · ${new Date().toLocaleTimeString()}`, partial?'':'live');
+    setStatus(`Live · USGS 11313433 + Port Chicago 9415144 · ${new Date().toLocaleTimeString()}`, 'live');
   }catch(e){
     setStatus(`Error: ${e.message}`, 'err');
     console.error(e);
@@ -1145,9 +1106,9 @@ async function loadAll(){
 setInterval(async()=>{
   try{
     const[g1d,g7d,f1d,f7d,wx]=await Promise.all([
-      safeUSGS('00065','P1D'),safeUSGS('00065','P7D'),
-      safeUSGS('00060','P1D'),safeUSGS('00060','P7D'),
-      fetchPortChicagoWx().catch(()=>({}))
+      fetchUSGS('00065','P1D'),fetchUSGS('00065','P7D'),
+      fetchUSGS('00060','P1D'),fetchUSGS('00060','P7D'),
+      fetchPortChicagoWx()
     ]);
     gageHist1d=g1d;gageHist7d=g7d;flowHist1d=f1d;flowHist7d=f7d;
     renderGageStat(g7d);renderFlowStat(f7d);renderWx(wx);
