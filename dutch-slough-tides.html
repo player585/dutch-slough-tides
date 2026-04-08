@@ -848,18 +848,7 @@ function drawGageChart(period){
     if(scaledFcast.length) combined=[...live,...scaledFcast.filter(p=>p.t>live[live.length-1].t)];
   }
   if(!combined.length) return;
-  const allV=combined.map(p=>p.v);
-  // Also include adjusted future hilo heights in scale so dots never clip
-  const futureHiloV=hiloWeek
-    .filter(p=>p.date.getTime()>Date.now())
-    .map(p=>p.h+dotOffset);
-  const allVExt=[...allV,...futureHiloV];
-  const vMin=Math.min(...allVExt)-0.4, vMax=Math.max(...allVExt)+0.5;
-  // All hi/lo dots from Jersey Island (9415053) — consistent source for past & future
-  // The forecast LINE uses Port Chicago + dynamic offset to match Jersey Island datum
-  // Dynamic offset = lastLive.v - nearest_PortChicago.v ≈ -1.75ft (known datum diff)
-  // Compute Jersey Island → USGS offset for hi/lo dot positioning
-  // Same computation used inside hiloToCurve
+  // Compute Jersey Island → USGS offset FIRST (used in scale calc and dot positions)
   let dotOffset=0;
   if(live.length&&hiloWeek.length){
     const lastLive=live[live.length-1];
@@ -874,6 +863,12 @@ function drawGageChart(period){
       dotOffset=lastLive.v-jerseyAtNow;
     }
   }
+  const allV=combined.map(p=>p.v);
+  const futureHiloV=hiloWeek
+    .filter(p=>p.date.getTime()>Date.now())
+    .map(p=>p.h+dotOffset);
+  const allVExt=[...allV,...futureHiloV];
+  const vMin=Math.min(...allVExt)-0.4, vMax=Math.max(...allVExt)+0.5;
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
     tPad:period==='1d'?0.25:0,
