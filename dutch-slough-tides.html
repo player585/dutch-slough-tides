@@ -276,7 +276,7 @@ main{padding:10px;display:flex;flex-direction:column;gap:10px;max-width:480px;ma
 </main>
 
 <script>
-// ── CONFIG ─────────────────────────────────────────────────────────
+// ── CONFIG ──────────────────────────────────────────────────────────────────
 const USGS_SITE = '11313433';          // Dutch Slough Nr Oakley CA — only local sensor
 const NOAA_PRED = '9415053';           // NOAA Jersey Island — hilo predictions (closest)
 const NOAA_PRED_6MIN = '9415144';       // NOAA Port Chicago — 6-min predictions (Jersey Island doesn't support 6-min)
@@ -285,10 +285,10 @@ const USGS_IV   = 'https://waterservices.usgs.gov/nwis/iv/';
 const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// ── CONSTANTS ─────────────────────────────────────────────────────
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const NOAA_WX_STATION = '9415144';   // Port Chicago — closest water temp + air + wind (22.2mi)
 
-// ── STATE ──────────────────────────────────────────────────────────
+// ── STATE ──────────────────────────────────────────────────────────────────
 let gageHist1d=[], gageHist7d=[];    // USGS gage height
 let flowHist1d=[], flowHist7d=[];    // USGS streamflow
 let noaaPredFuture=[];               // NOAA 6-min future predictions
@@ -304,18 +304,18 @@ const ZP = {
   flow:{zoom:1,panOffset:0,isDragging:false,dragStart:0,panStart:0,lastPinchDist:0}
 };
 
-// ── CLOCK ──────────────────────────────────────────────────────────
+// ── CLOCK ──────────────────────────────────────────────────────────────────
 function tick(){const n=new Date();let h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;document.getElementById('clock').textContent=`${h}:${String(m).padStart(2,'0')} ${ap} ${MS[n.getMonth()]} ${n.getDate()}`;}
 tick(); setInterval(tick,1000);
 
-// ── HELPERS ────────────────────────────────────────────────────────
+// ── HELPERS ─────────────────────────────────────────────────────────────────
 function ymd(d){return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
 function parseNoaaT(s){const[dp,tp]=s.split(' ');const[y,mo,d]=dp.split('-').map(Number);const[h,mi]=tp.split(':').map(Number);return new Date(y,mo-1,d,h,mi);}
 function fmt12(d){let h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap}`;}
 function cdStr(ms){const diff=ms-Date.now();if(diff<0)return 'passed';const mn=Math.floor(diff/60000),hr=Math.floor(mn/60),mi=mn%60;return hr>0?`in ${hr}h ${mi}m`:`in ${mi}m`;}
 function setStatus(msg,cls=''){document.getElementById('stext').textContent=msg;document.getElementById('sdot').className='sdot'+(cls?' '+cls:'');}
 
-// ── USGS FETCH ─────────────────────────────────────────────────────
+// ── USGS FETCH ─────────────────────────────────────────────────────────────────
 async function fetchUSGS(paramCd, period){
   const url=`${USGS_IV}?sites=${USGS_SITE}&parameterCd=${paramCd}&format=json&period=${period}&siteStatus=all`;
   const r=await fetch(url); if(!r.ok) throw new Error('USGS '+r.status);
@@ -328,7 +328,7 @@ async function fetchUSGS(paramCd, period){
   return [];
 }
 
-// ── NOAA PORT CHICAGO WX FETCH ────────────────────────────────────
+// ── NOAA PORT CHICAGO WX FETCH ────────────────────────────────────────────────
 async function fetchPortChicagoWx(){
   const prods=['water_temperature','air_temperature','wind'];
   const results={};
@@ -367,7 +367,7 @@ function renderWx(wx){
   }
 }
 
-// ── NOAA HILO PREDICTIONS ──────────────────────────────────────────
+// ── NOAA HILO PREDICTIONS ──────────────────────────────────────────────────
 async function fetchNoaaHiLo(begin,end){
   const u=new URL(NOAA_API);
   Object.entries({station:NOAA_PRED,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'hilo',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
@@ -376,7 +376,7 @@ async function fetchNoaaHiLo(begin,end){
   return (d.predictions||[]).map(p=>({...p, date:parseNoaaT(p.t), h:parseFloat(p.v)}));
 }
 
-// ── NOAA 6-MIN PREDICTIONS ─────────────────────────────────────────
+// ── NOAA 6-MIN PREDICTIONS ───────────────────────────────────────────────────
 async function fetchNoaa6min(begin,end){
   const u=new URL(NOAA_API);
   Object.entries({station:NOAA_PRED_6MIN,product:'predictions',begin_date:begin,end_date:end,datum:'MLLW',units:'english',time_zone:'lst_ldt',interval:'6',format:'json'}).forEach(([k,v])=>u.searchParams.set(k,v));
@@ -385,7 +385,7 @@ async function fetchNoaa6min(begin,end){
   return (d.predictions||[]).map(p=>({t:parseNoaaT(p.t), v:parseFloat(p.v)}));
 }
 
-// ── RENDER LIVE STATS ──────────────────────────────────────────────
+// ── RENDER LIVE STATS ──────────────────────────────────────────────────────
 function renderGageStat(pts){
   if(!pts.length) return;
   const latest=pts[pts.length-1]; latestGage=latest.v;
@@ -411,11 +411,11 @@ function renderFlowStat(pts){
   fEl.className=`stat-val sv-flow ${latestFlow>=0?'flood-color':'ebb-color'}`;
   const el=document.getElementById('st-flow');
   if(latestFlow>=0) el.innerHTML='<span class="flood-color">▶ FLOOD (inflow)</span>';
-  else el.innerHTML='<span class="ebb-color">◀ EBB (outflow)</span>';
+  else el.innerHTML='<span class="ebb-color">◄ EBB (outflow)</span>';
   prevFlow=latestFlow;
 }
 
-// ── NEXT TIDES PILLS ───────────────────────────────────────────────
+// ── NEXT TIDES PILLS ─────────────────────────────────────────────────────────
 function renderPills(hilo){
   const now=new Date();
   upcoming=hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date);
@@ -430,7 +430,7 @@ function renderPills(hilo){
   set('n',upcoming[0]); set('a',upcoming[1]);
 }
 
-// ── TODAY TABLE ────────────────────────────────────────────────────
+// ── TODAY TABLE ─────────────────────────────────────────────────────────────────
 function renderTable(hilo){
   const now=new Date();
   const nextT=hilo.filter(p=>p.date>now).sort((a,b)=>a.date-b.date)[0]?.date.getTime();
@@ -440,7 +440,7 @@ function renderTable(hilo){
   }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>';
 }
 
-// ── 7-DAY WEEKLY STRIP ─────────────────────────────────────────────
+// ── 7-DAY WEEKLY STRIP ───────────────────────────────────────────────────────────
 function renderWeekly(hilo){
   const today=ymd(new Date()), byDay={};
   hilo.forEach(p=>{const k=ymd(p.date);if(!byDay[k])byDay[k]={hi:[],lo:[]};p.type==='H'?byDay[k].hi.push(p.h):byDay[k].lo.push(p.h);});
@@ -455,7 +455,7 @@ function renderWeekly(hilo){
   document.getElementById('wstrip').innerHTML=html;
 }
 
-// ── FISHING CONDITIONS ─────────────────────────────────────────────
+// ── FISHING CONDITIONS ───────────────────────────────────────────────────────────────
 function evalFishing(hilo){
   const now=new Date();
   const past=hilo.filter(p=>p.date<=now).sort((a,b)=>b.date-a.date);
@@ -534,7 +534,7 @@ function evalFishing(hilo){
   document.getElementById('fish-factors').innerHTML=factors.map(f=>`<span class="factor ${f.pos===true?'pos':f.pos===false?'neg':'neu'}">${f.txt}</span>`).join('');
 }
 
-// ── ZOOM / PAN ─────────────────────────────────────────────────────
+// ── ZOOM / PAN ─────────────────────────────────────────────────────────────────
 function clampZP(st){st.zoom=Math.max(1,Math.min(12,st.zoom));st.panOffset=Math.max(0,Math.min(1-1/st.zoom,st.panOffset));}
 function getView(st,tMin,tMax){const total=tMax-tMin,vis=total/st.zoom,start=tMin+st.panOffset*total;return{start,end:start+vis};}
 function attachZoom(wrapId,st,redraw){
@@ -548,11 +548,11 @@ function attachZoom(wrapId,st,redraw){
   wrap.addEventListener('touchend',e=>{if(e.touches.length<2)st.lastPinchDist=0;if(e.touches.length===0)st.isDragging=false;});
 }
 
-// ── NOW ANIMATION ──────────────────────────────────────────────────
+// ── NOW ANIMATION ────────────────────────────────────────────────────────────────
 let nowPhase=0, animFrame=null;
 function startAnim(){if(animFrame)return;function loop(ts){nowPhase=ts;drawGageChart(gagePeriod);drawFlowChart(flowPeriod);animFrame=requestAnimationFrame(loop);}animFrame=requestAnimationFrame(loop);}
 
-// ── CHART CORE ─────────────────────────────────────────────────────
+// ── CHART CORE ─────────────────────────────────────────────────────────────────
 
 // Build forecast curve by cosine-interpolating between Jersey Island hi/lo points
 // Guarantees curve passes exactly through each hi/lo dot
@@ -768,7 +768,7 @@ function drawChart(canvasId,allPts,st,opts){
   if(st.zoom>1.1){ctx.fillStyle='rgba(0,180,255,0.35)';ctx.font=`${8*s}px Share Tech Mono`;ctx.textAlign='right';ctx.fillText(`${st.zoom.toFixed(1)}x`,W-pR,pT+10*s);}
 }
 
-// ── GAGE HEIGHT CHART ──────────────────────────────────────────────
+// ── GAGE HEIGHT CHART ────────────────────────────────────────────────────────────────
 function drawGageChart(period){
   const live=period==='1d'?gageHist1d:gageHist7d;
   // Always show 48hr forecast on all periods
@@ -837,7 +837,7 @@ function drawGageChart(period){
   });
 }
 
-// ── FLOW CHART ─────────────────────────────────────────────────────
+// ── FLOW CHART ───────────────────────────────────────────────────────────────────
 // Convert NOAA 6-min tide heights to flow forecast
 // Scale is auto-calibrated: liveAbsMax / max(|dh/dt|) so amplitude matches history
 function noaaToFlow(pred, liveAbsMax){
@@ -922,18 +922,19 @@ function drawFlowChart(period){
   });
 }
 
-// ── PERIOD TOGGLES ─────────────────────────────────────────────────
+// ── PERIOD TOGGLES ─────────────────────────────────────────────────────────────────
 function setGagePeriod(p){gagePeriod=p;ZP.gage.zoom=1;ZP.gage.panOffset=0;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('gage-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawGageChart(p);}
 function setFlowPeriod(p){flowPeriod=p;ZP.flow.zoom=1;ZP.flow.panOffset=0;['1d','7d','14d'].forEach(id=>{const el=document.getElementById('flow-'+id);if(el)el.className='tbtn'+(p===id?' active':'');});drawFlowChart(p);}
 
-// Countdown refresh
-setInterval(()=>{if(upcoming[0])document.getElementById('pn-cd').textContent=cdStr(upcoming[0].date);if(upcoming[1])document.getElementById('pa-cd').textContent=cdStr(upcoming[1].date);},30000);
+// FIX 3: replaced stale 30s countdown with full renderPills every 60s
+// so Next/After That always tracks correctly after a tide passes
+setInterval(()=>{ renderPills(hiloToday); },60000);
 attachZoom('gage-wrap',ZP.gage,()=>drawGageChart(gagePeriod));
 attachZoom('flow-wrap',ZP.flow,()=>drawFlowChart(flowPeriod));
 
-// ── MAIN LOAD ──────────────────────────────────────────────────────
+// ── MAIN LOAD ────────────────────────────────────────────────────────────────────────────────────
 
-// ── SUNRISE / SUNSET (NOAA algorithm, Bethel Island CA) ────────────────
+// ── SUNRISE / SUNSET (NOAA algorithm, Bethel Island CA) ────────────────────
 const LAT=37.987, LON=-121.642;
 
 function calcSun(date){
@@ -963,7 +964,7 @@ function fmtSun(d){
 }
 
 
-// ── MOON PHASE + RISE/SET (Meeus algorithm, Bethel Island CA) ──────────────
+// ── MOON PHASE + RISE/SET (Meeus algorithm, Bethel Island CA) ──────────────────
 function calcMoonPhase(date){
   const JD=(date.getTime()/86400000)+2440587.5;
   // Days since J2000.0
@@ -1082,7 +1083,8 @@ async function loadAll(){
     flowHist1d=f1d; flowHist7d=f7d;
     noaaPredFuture=predFuture;
     hiloWeek=hw;
-    hiloToday=hiloExt.filter(p=>ymd(p.date)===today);
+    // FIX 1: use full today+tomorrow window so pills/table/fishing always have upcoming data
+    hiloToday=hiloExt; // today+tomorrow window — pills/table/fishing always have upcoming data
     renderGageStat(g7d);
     renderFlowStat(f7d);
     renderWx(wx);
@@ -1111,7 +1113,8 @@ setInterval(async()=>{
       fetchPortChicagoWx()
     ]);
     gageHist1d=g1d;gageHist7d=g7d;flowHist1d=f1d;flowHist7d=f7d;
-    renderGageStat(g7d);renderFlowStat(f7d);renderWx(wx);
+    // FIX 2: re-render pills and table on every auto-refresh so they stay current
+    renderGageStat(g7d);renderFlowStat(f7d);renderWx(wx);renderPills(hiloToday);renderTable(hiloToday);
     drawGageChart(gagePeriod);drawFlowChart(flowPeriod);evalFishing(hiloToday);
     setStatus(`Live · USGS 11313433 + Port Chicago · ${new Date().toLocaleTimeString()}`, 'live');
   }catch(e){console.warn('Refresh err:',e);}
