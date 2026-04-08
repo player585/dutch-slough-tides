@@ -550,7 +550,10 @@ function drawChart(canvasId,allPts,st,opts){
   const pL=(opts.pL||46)*s, pR=12*s, pT=16*s, pB=24*s, cW=W-pL-pR, cH=H-pT-pB;
   ctx.fillStyle='#060d14'; ctx.fillRect(0,0,W,H);
   if(!allPts.length){ctx.fillStyle='rgba(0,180,255,0.3)';ctx.font=`${10*s}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText('No local data',W/2,H/2);return;}
-  const allTMin=allPts[0].t.getTime(), allTMax=allPts[allPts.length-1].t.getTime();
+  const allTMin=allPts[0].t.getTime();
+  const allTMaxRaw=allPts[allPts.length-1].t.getTime();
+  // tPad extends the right edge so NOW isn't stuck at the far right
+  const allTMax=opts.tPad?allTMaxRaw+(allTMaxRaw-allTMin)*opts.tPad:allTMaxRaw;
   const{start:tMin,end:tMax}=getView(st,allTMin,allTMax);
   const vis=allPts.filter(p=>p.t.getTime()>=tMin-300000&&p.t.getTime()<=tMax+300000);
   if(!vis.length) return;
@@ -637,6 +640,7 @@ function drawGageChart(period){
   const vMin=Math.min(...allV)-0.3, vMax=Math.max(...allV)+0.4;
   drawChart('gage-canvas',combined,ZP.gage,{
     pL:46, yStep:0.5, vMin, vMax,
+    tPad:period==='1d'?0.25:0,
     hiloPoints:hiloWeek,
     nowVal:latestGage,
     valLabel:v=>`${v.toFixed(2)} ft`,
@@ -713,6 +717,7 @@ function drawFlowChart(period){
     pL:52, vMin:-absMax*1.12, vMax:absMax*1.12,
     yStep:absMax>3000?1000:absMax>1000?500:250,
     showZero:true,
+    tPad:period==='1d'?0.25:0,
     yFmt:v=>{const a=Math.abs(v);return a>=1000?`${(v/1000).toFixed(0)}k`:String(Math.round(v));},
     nowVal:latestFlow,
     valLabel:v=>{const a=Math.abs(v);return a>=1000?`${(v/1000).toFixed(1)}k ft³/s`:`${Math.round(v)} ft³/s`;},
